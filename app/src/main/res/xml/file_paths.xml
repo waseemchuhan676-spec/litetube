@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  FileProvider paths for the OTA updater.
+  UpdateManager downloads the APK into getExternalFilesDir(DIRECTORY_DOWNLOADS),
+  i.e. <app-external-files>/Download/update.apk — this entry is what allows
+  the system installer to read exactly that file, nothing else.
+  Copy this file to: app/src/main/res/xml/file_paths.xml
+-->
+<paths>
+    <external-files-path name="downloads" path="Download/" />
+</paths>
