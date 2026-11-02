@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Main screen. D-Pad rules applied here:
+  - Only actionable controls are focusable: search field, search button,
+    results list rows, quality spinner, download button.
+  - PlayerView and both text views are focusable="false" so D-Pad focus can
+    NEVER get trapped inside a non-actionable element.
+  - nextFocusDown chains the focus order top-to-bottom so a remote user
+    always has an escape route.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#0B0F14"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <!-- Search row -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <EditText
+            android:id="@+id/searchInput"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="@drawable/focus_border"
+            android:focusable="true"
+            android:focusableInTouchMode="true"
+            android:hint="@string/search_hint"
+            android:imeOptions="actionSearch"
+            android:inputType="textUri"
+            android:nextFocusDown="@+id/searchButton"
+            android:nextFocusRight="@+id/searchButton"
+            android:padding="12dp"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#8A9BA8"
+            android:textSize="16sp" />
+
+        <Button
+            android:id="@+id/searchButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:background="@drawable/focus_border"
+            android:focusable="true"
+            android:focusableInTouchMode="true"
+            android:nextFocusDown="@+id/resultsList"
+            android:nextFocusLeft="@+id/searchInput"
+            android:padding="12dp"
+            android:text="@string/search"
+            android:textColor="#FFFFFF" />
+    </LinearLayout>
+
+    <!-- Loading / status line (not focusable). -->
+    <ProgressBar
+        android:id="@+id/loadingBar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="8dp"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/statusText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:focusable="false"
+        android:paddingTop="4dp"
+        android:textColor="#8A9BA8"
+        android:textSize="14sp" />
+
+    <!-- Search results. Each row is focusable; the list itself is the
+         D-Pad step between the search button and the quality spinner. -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/resultsList"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:focusable="true"
+        android:focusableInTouchMode="true"
+        android:nextFocusDown="@+id/qualitySpinner"
+        android:nextFocusUp="@+id/searchButton" />
+
+    <!-- Player. Deliberately NOT focusable: the remote must never land here,
+         playback is controlled through the buttons below it. -->
+    <androidx.media3.ui.PlayerView
+        android:id="@+id/playerView"
+        android:layout_width="match_parent"
+        android:layout_height="220dp"
+        android:layout_marginTop="8dp"
+        android:focusable="false"
+        android:focusableInTouchMode="false"
+        app:controller_layout_id="@layout/player_controls"
+        app:show_controller="true"
+        app:use_controller="true" />
+
+    <!-- Title + metadata (not focusable). -->
+    <TextView
+        android:id="@+id/videoTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:focusable="false"
+        android:paddingTop="8dp"
+        android:textColor="#FFFFFF"
+        android:textSize="17sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/videoMeta"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:focusable="false"
+        android:textColor="#8A9BA8"
+        android:textSize="14sp" />
+
+    <!-- Quality + download row -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:orientation="horizontal">
+
+        <Spinner
+            android:id="@+id/qualitySpinner"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/focus_border"
+            android:focusable="true"
+            android:focusableInTouchMode="true"
+            android:nextFocusDown="@+id/downloadButton"
+            android:nextFocusRight="@+id/downloadButton"
+            android:nextFocusUp="@+id/resultsList"
+            android:padding="8dp" />
+
+        <Button
+            android:id="@+id/downloadButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_weight="1"
+            android:background="@drawable/focus_border"
+            android:enabled="false"
+            android:focusable="true"
+            android:focusableInTouchMode="true"
+            android:nextFocusLeft="@+id/qualitySpinner"
+            android:nextFocusUp="@+id/resultsList"
+            android:padding="14dp"
+            android:text="@string/download_to_gallery"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+</LinearLayout>

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Minimal Media3 controller: play/pause only, so the remote never gets
+     trapped in a big controller bar. The PlayerView itself stays
+     non-focusable; these buttons are reachable only while the controller
+     is shown, and focus returns to the activity controls afterwards. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:gravity="center"
+    android:orientation="horizontal"
+    android:padding="8dp">
+
+    <ImageButton
+        android:id="@id/exo_play"
+        android:layout_width="56dp"
+        android:layout_height="56dp"
+        android:background="@drawable/focus_border"
+        android:contentDescription="@string/play_pause"
+        android:src="@drawable/ic_play" />
+
+    <ImageButton
+        android:id="@id/exo_pause"
+        android:layout_width="56dp"
+        android:layout_height="56dp"
+        android:background="@drawable/focus_border"
+        android:contentDescription="@string/play_pause"
+        android:src="@drawable/ic_pause" />
+
+</LinearLayout>
