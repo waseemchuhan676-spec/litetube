@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  LiteTube manifest.
+  Update wiring (user-approved 2026-11-02, see the update hub GUIDE.md):
+  - REQUEST_INSTALL_PACKAGES: the updater's install intent needs it. It is
+    a normal permission, granted at install time; the separate per-app
+    "Install unknown apps" toggle is still handled by UpdateManager via the
+    system settings screen.
+  - FileProvider: serves ONLY the downloaded update APK
+    (<app-external-files>/Download/update.apk) to the system installer.
+    Gallery downloads go to public storage and do not use this provider.
+  - android:name=".LiteTubeApp": Application-scoped UpdateManager.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Network: stream resolution and playback are 100% client-side. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- Updater: lets the system installer open the downloaded APK. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
+    <!-- Legacy storage only: Android 9 and below. Android 10+ uses the
+         MediaStore API (scoped storage) and needs no storage permission. -->
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
+
+    <!-- Combined handheld + TV app: touchscreen is optional, leanback is
+         optional, so the same APK installs on phones and on TV boxes. -->
+    <uses-feature
+        android:name="android.hardware.touchscreen"
+        android:required="false" />
+    <uses-feature
+        android:name="android.software.leanback"
+        android:required="false" />
+
+    <application
+        android:name=".LiteTubeApp"
+        android:allowBackup="true"
+        android:banner="@drawable/tv_banner"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.LiteTube">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:screenOrientation="unspecified">
+            <!-- Standard phone/tablet launcher. -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- Android TV / Fire TV launcher (requires the banner above). -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Updater: exposes ONLY the downloaded update APK to the installer.
+             Authority matches UpdateManager's "${packageName}.fileprovider". -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+    </application>
+
+</manifest>
