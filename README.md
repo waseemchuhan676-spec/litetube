@@ -1,4 +1,4 @@
-# LiteTube — ultra-lightweight YouTube client for phones and low-spec Android TV boxes
+# LittleTube — ultra-lightweight YouTube client for phones and low-spec Android TV boxes
 
 100% Kotlin, no WebView, no server. Search and stream resolution happen
 client-side via NewPipeExtractor; playback is AndroidX Media3 (ExoPlayer)
@@ -56,7 +56,7 @@ app/
 ## Downloads: how they actually work
 
 - **Android 10+ (scoped storage):** MediaStore insert with `RELATIVE_PATH`
-  (`Movies/LiteTube` for video, `Music/LiteTube` for audio) and the
+  (`Movies/LittleTube` for video, `Music/LittleTube` for audio) and the
   `IS_PENDING` flag, streamed through OkHttp. The file becomes visible the
   moment `IS_PENDING` clears. DownloadManager is **not** used here because
   it cannot target a MediaStore Uri.
