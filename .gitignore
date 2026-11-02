@@ -1,0 +1,11 @@
+# Build outputs (never committed; CI rebuilds them)
+build/
+app/build/
+.gradle/
+
+# Local Android SDK location (machine-specific)
+local.properties
+
+# IDE files
+*.iml
+.idea/
