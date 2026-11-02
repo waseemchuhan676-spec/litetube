@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">LiteTube</string>
+    <string name="app_name">LittleTube</string>
     <string name="search_hint">Search or paste a video link…</string>
     <string name="search">Search</string>
     <string name="download_to_gallery">Download to Gallery</string>
