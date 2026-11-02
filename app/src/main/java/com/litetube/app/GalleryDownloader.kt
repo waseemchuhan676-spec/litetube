@@ -115,9 +115,9 @@ class GalleryDownloader(
                 MediaStore.Video.Media.EXTERNAL_CONTENT_URI
             }
             val relativePath = if (isAudio) {
-                "${Environment.DIRECTORY_MUSIC}/LiteTube"
+                "${Environment.DIRECTORY_MUSIC}/LittleTube"
             } else {
-                "${Environment.DIRECTORY_MOVIES}/LiteTube"
+                "${Environment.DIRECTORY_MOVIES}/LittleTube"
             }
             val values = ContentValues().apply {
                 put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
@@ -176,9 +176,9 @@ class GalleryDownloader(
         val publicDir = if (isAudio) Environment.DIRECTORY_MUSIC else Environment.DIRECTORY_MOVIES
         val request = DownloadManager.Request(Uri.parse(streamUrl)).apply {
             setTitle(fileName)
-            setDescription("LiteTube download")
+            setDescription("LittleTube download")
             setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-            setDestinationInExternalPublicDir(publicDir, "LiteTube/$fileName")
+            setDestinationInExternalPublicDir(publicDir, "LittleTube/$fileName")
             setAllowedOverMetered(true)
             setAllowedOverRoaming(false)
         }
@@ -216,7 +216,7 @@ class GalleryDownloader(
                         Environment.getExternalStoragePublicDirectory(
                             Environment.DIRECTORY_MOVIES
                         ),
-                        "LiteTube"
+                        "LittleTube"
                     ).absolutePath
                 }
             }

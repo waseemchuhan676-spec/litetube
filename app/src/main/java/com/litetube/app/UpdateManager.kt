@@ -237,7 +237,7 @@ class UpdateManager(
 
         val manager = appContext.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
         val request = DownloadManager.Request(Uri.parse(info.apkUrl)).apply {
-            setTitle("LiteTube update ${info.versionName}")
+            setTitle("LittleTube update ${info.versionName}")
             setDescription(info.releaseNotes)
             setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
             setDestinationUri(Uri.fromFile(apkFile))

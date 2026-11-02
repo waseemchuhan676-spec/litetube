@@ -19,7 +19,7 @@ import okhttp3.OkHttpClient
 class PlayerManager(context: Context, okHttpClient: OkHttpClient) {
 
     private val dataSourceFactory = OkHttpDataSource.Factory(okHttpClient)
-        .setUserAgent("Mozilla/5.0 (Linux; Android 10) LiteTube/1.0")
+        .setUserAgent("Mozilla/5.0 (Linux; Android 10) LittleTube/1.0")
 
     private val loadControl = DefaultLoadControl.Builder()
         .setBufferDurationsMs(

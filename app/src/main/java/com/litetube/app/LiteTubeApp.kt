@@ -25,7 +25,7 @@ class LiteTubeApp : Application() {
         super.onCreate()
         updateManager = UpdateManager(
             context = this,
-            updateJsonUrl = "https://YOUR-APP.vercel.app/update.json",
+            updateJsonUrl = "https://littletube.vercel.app/update.json",
             autoDownload = true
         )
         updateManager.start()
