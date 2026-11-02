@@ -86,6 +86,10 @@ jobs:
 
       - name: Build release APK
         run: ./gradlew assembleRelease
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
       - name: Stage the APK
         run: cp app/build/outputs/apk/release/app-release.apk ./app-release.apk
