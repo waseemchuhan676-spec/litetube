@@ -52,6 +52,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -100,6 +102,13 @@ jobs:
           SHA=$(sha256sum ./app-release.apk | awk '{print $1}')
           echo "sha=$SHA" >> "$GITHUB_OUTPUT"
           echo "SHA-256: $SHA"
+
+      - name: Upload APK as workflow artifact (fallback if release publish fails)
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-apk
+          path: ./app-release.apk
+          if-no-files-found: error
 
       - name: Publish GitHub Release with APK
         uses: softprops/action-gh-release@v2
