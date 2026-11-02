@@ -32,7 +32,7 @@ class OkHttpDownloader(
             for (name in response.headers.names()) {
                 headers[name] = response.headers.values(name)
             }
-            val body = response.body?.bytes() ?: ByteArray(0)
+            val body = response.body?.string() ?: ""
             return Response(
                 response.code,
                 response.message,

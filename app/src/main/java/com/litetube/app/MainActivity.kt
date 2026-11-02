@@ -198,24 +198,26 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch {
             if (quality == DownloadQuality.AUDIO) {
                 val audio = QualitySelector.selectAudio(streams.audioStreams)
-                if (audio == null) {
+                val audioUrl = audio?.url
+                if (audioUrl == null) {
                     statusText.text = getString(R.string.status_download_failed)
                     return@launch
                 }
                 downloader.downloadAudio(
                     title = streams.title,
-                    streamUrl = audio.url,
+                    streamUrl = audioUrl,
                     extension = QualitySelector.audioExtension(audio)
                 )
             } else {
                 val selected = QualitySelector.selectVideo(streams.videoStreams, quality)
-                if (selected == null) {
+                val videoUrl = selected?.stream?.url
+                if (videoUrl == null) {
                     statusText.text = getString(R.string.status_download_failed)
                     return@launch
                 }
                 downloader.downloadVideo(
                     title = streams.title,
-                    streamUrl = selected.stream.url,
+                    streamUrl = videoUrl,
                     actualLabel = selected.actualLabel,
                     extension = QualitySelector.videoExtension(selected.stream)
                 )
