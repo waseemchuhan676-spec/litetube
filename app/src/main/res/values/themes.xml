@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark theme: no action bar (the layout provides its own header row),
+         dark background so the TV screen stays dim in a living room. -->
+    <style name="Theme.LiteTube" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:windowBackground">#0B0F14</item>
+        <item name="android:textColorPrimary">#FFFFFF</item>
+        <item name="android:textColorSecondary">#8A9BA8</item>
+        <item name="colorPrimary">#1565C0</item>
+        <item name="colorPrimaryDark">#0B1F33</item>
+        <item name="colorAccent">#FFEB3B</item>
+    </style>
+</resources>

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">LiteTube</string>
+    <string name="search_hint">Search or paste a video link…</string>
+    <string name="search">Search</string>
+    <string name="download_to_gallery">Download to Gallery</string>
+    <string name="play_pause">Play / Pause</string>
+    <string name="status_idle">Enter a search term or a video link above.</string>
+    <string name="status_loading">Loading…</string>
+    <string name="status_no_results">No results found.</string>
+    <string name="status_error">Something went wrong. Check your connection and try again.</string>
+    <string name="status_downloading">Downloading…</string>
+    <string name="status_download_done">Saved to Gallery.</string>
+    <string name="status_download_failed">Download failed.</string>
+    <string name="quality_1080">1080p</string>
+    <string name="quality_720">720p</string>
+    <string name="quality_480">480p</string>
+    <string name="quality_audio">Audio only</string>
+</resources>
