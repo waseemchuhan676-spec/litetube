@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  LiteTube manifest.
+  LittleTube manifest.
   Update wiring (user-approved 2026-11-02, see the update hub GUIDE.md):
   - REQUEST_INSTALL_PACKAGES: the updater's install intent needs it. It is
     a normal permission, granted at install time; the separate per-app
