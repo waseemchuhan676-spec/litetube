@@ -70,6 +70,13 @@
             </intent-filter>
         </activity>
 
+        <!-- Settings screen (v1.5.0): updates, downloads, about.
+             Internal only — never launched from outside the app. -->
+        <activity
+            android:name=".SettingsActivity"
+            android:exported="false"
+            android:screenOrientation="unspecified" />
+
         <!-- Updater: exposes ONLY the downloaded update APK to the installer.
              Authority matches UpdateManager's "${packageName}.fileprovider". -->
         <provider
