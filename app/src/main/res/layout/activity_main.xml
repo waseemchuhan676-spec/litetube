@@ -1,12 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   Main screen. D-Pad rules applied here:
-  - Only actionable controls are focusable: search field, search button,
-    results list rows, quality spinner, download button.
+  - Only actionable controls are focusable: search field, mic button,
+    search button, results list rows, quality spinner, download button.
   - PlayerView and both text views are focusable="false" so D-Pad focus can
     NEVER get trapped inside a non-actionable element.
   - nextFocusDown chains the focus order top-to-bottom so a remote user
     always has an escape route.
+  - The mic button is GONE on devices with no speech recognizer
+    (MainActivity hides it); GONE views are skipped by D-Pad focus search,
+    so the chain still works there.
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -34,11 +37,30 @@
             android:imeOptions="actionSearch"
             android:inputType="textUri"
             android:nextFocusDown="@+id/clearHistory"
-            android:nextFocusRight="@+id/searchButton"
+            android:nextFocusRight="@+id/voiceButton"
             android:padding="12dp"
             android:textColor="#FFFFFF"
             android:textColorHint="#8A9BA8"
             android:textSize="16sp" />
+
+        <!-- Voice search (YouTube-style mic in the search bar). Tapping it
+             asks for the mic permission, then listens and searches what was
+             heard. Hidden at runtime where no recognizer exists. -->
+        <ImageButton
+            android:id="@+id/voiceButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:background="@drawable/focus_border"
+            android:contentDescription="@string/voice_search"
+            android:focusable="true"
+            android:focusableInTouchMode="true"
+            android:nextFocusDown="@+id/clearHistory"
+            android:nextFocusLeft="@+id/searchInput"
+            android:nextFocusRight="@+id/searchButton"
+            android:nextFocusUp="@+id/searchInput"
+            android:padding="12dp"
+            android:src="@drawable/ic_mic" />
 
         <Button
             android:id="@+id/searchButton"
@@ -49,7 +71,7 @@
             android:focusable="true"
             android:focusableInTouchMode="true"
             android:nextFocusDown="@+id/resultsList"
-            android:nextFocusLeft="@+id/searchInput"
+            android:nextFocusLeft="@+id/voiceButton"
             android:nextFocusUp="@+id/searchInput"
             android:padding="12dp"
             android:text="@string/search"
