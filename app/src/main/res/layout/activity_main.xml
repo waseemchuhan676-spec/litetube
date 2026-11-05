@@ -81,10 +81,29 @@
             android:focusableInTouchMode="true"
             android:nextFocusDown="@+id/chipAll"
             android:nextFocusLeft="@+id/voiceButton"
+            android:nextFocusRight="@+id/settingsButton"
             android:nextFocusUp="@+id/searchInput"
             android:padding="12dp"
             android:text="@string/search"
             android:textColor="@color/lt_text_primary" />
+
+        <!-- Settings (v1.5.0): opens the professional Settings screen
+             (updates, downloads, about). Same focus rules as the mic and
+             search buttons; D-Pad RIGHT from Search, DOWN to the chips. -->
+        <ImageButton
+            android:id="@+id/settingsButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:background="@drawable/focus_border"
+            android:contentDescription="@string/settings_title"
+            android:focusable="true"
+            android:focusableInTouchMode="true"
+            android:nextFocusDown="@+id/chipAll"
+            android:nextFocusLeft="@+id/searchButton"
+            android:nextFocusUp="@+id/searchInput"
+            android:padding="12dp"
+            android:src="@drawable/ic_settings" />
     </LinearLayout>
 
     <!-- Suggestions + recent searches, shown under the search bar while
