@@ -1,78 +1,108 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Search result / home-feed / related row. The whole row is one focusable
-     unit for D-Pad; the three-dots button at the right is a second focusable
-     stop (VidMate-style download menu). Focus: row nextFocusRight -> the
-     ⋮ button (resolved inside this row's own subtree, so duplicate ids
-     across rows are safe); the button hands DPAD_LEFT back to the row in
-     code (SearchResultsAdapter), and UP/DOWN fall through to the list's
-     normal geometric row-to-row movement. Thumbnail (v1.4.0): a small
-     120x90 image at the left, loaded by ThumbnailLoader; the
-     thumb_placeholder background shows while it loads or when the video
-     has no thumbnail. The image itself is never focusable. -->
+<!-- Video card (v1.6.0, VidMate reference): a vertical card, NOT a
+     horizontal row. Large 16:9 thumbnail on top (190dp, rounded top
+     corners, clipped to the card outline), title + channel/meta below,
+     and a download icon + vertical-dots button on the meta line. The
+     whole card is one focusable unit for D-Pad; the download icon and
+     the dots button are two extra focus stops (see
+     SearchResultsAdapter): card RIGHT to download icon, RIGHT to dots
+     button; LEFT walks back the same way.
+     The thumbnail is never focusable. The card background is
+     @drawable/card_bg (white + thin border, red border on focus). -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/resultRow"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="@drawable/focus_border"
+    android:layout_marginBottom="12dp"
+    android:background="@drawable/card_bg"
     android:focusable="true"
     android:focusableInTouchMode="true"
-    android:nextFocusRight="@+id/rowMenuButton"
-    android:orientation="horizontal"
-    android:padding="12dp">
+    android:nextFocusRight="@+id/rowDownloadButton"
+    android:orientation="vertical">
 
-    <!-- Video thumbnail (v1.4.0). Never focusable: D-Pad moves row to
-         row, not into the image. -->
+    <!-- Large 16:9 thumbnail. Fixed 190dp height with centerCrop: on a
+         phone this is ~1.8:1, i.e. 16:9 for the card width. Rounded top
+         corners via thumb_rounded + clipToOutline (API 21+); the
+         placeholder grey shows while it loads or when the video has no
+         thumbnail. -->
     <ImageView
         android:id="@+id/resultThumbnail"
-        android:layout_width="120dp"
-        android:layout_height="90dp"
-        android:layout_gravity="center_vertical"
-        android:layout_marginEnd="12dp"
-        android:background="@drawable/thumb_placeholder"
+        android:layout_width="match_parent"
+        android:layout_height="190dp"
+        android:background="@drawable/thumb_rounded"
+        android:clipToOutline="true"
         android:contentDescription="@string/thumbnail"
         android:focusable="false"
         android:focusableInTouchMode="false"
         android:scaleType="centerCrop" />
 
+    <!-- Title + meta, with the download icon and ⋮ on the same line. -->
     <LinearLayout
-        android:layout_width="0dp"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_weight="1"
-        android:orientation="vertical">
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:padding="12dp">
 
-        <TextView
-            android:id="@+id/resultTitle"
-            android:layout_width="match_parent"
+        <LinearLayout
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:focusable="false"
-            android:textColor="@color/lt_text_primary"
-            android:textSize="15sp"
-            android:textStyle="bold" />
+            android:layout_weight="1"
+            android:orientation="vertical">
 
-        <TextView
-            android:id="@+id/resultMeta"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:focusable="false"
-            android:paddingTop="2dp"
-            android:textColor="@color/lt_text_secondary"
-            android:textSize="13sp" />
+            <TextView
+                android:id="@+id/resultTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:focusable="false"
+                android:maxLines="2"
+                android:textColor="@color/lt_text_primary"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/resultMeta"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:focusable="false"
+                android:maxLines="1"
+                android:paddingTop="2dp"
+                android:textColor="@color/lt_text_secondary"
+                android:textSize="13sp" />
+
+        </LinearLayout>
+
+        <!-- Per-card download (VidMate reference): downloads this video
+             straight away, same flow as the popup and the ⋮ menu. -->
+        <ImageButton
+            android:id="@+id/rowDownloadButton"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="4dp"
+            android:background="@drawable/focus_border"
+            android:contentDescription="@string/download"
+            android:focusable="true"
+            android:focusableInTouchMode="true"
+            android:padding="8dp"
+            android:src="@drawable/ic_download" />
+
+        <!-- Three-dots menu (Download). Focusable so D-Pad users can
+             reach it from the download icon with RIGHT; tapping it
+             opens a PopupMenu. -->
+        <ImageButton
+            android:id="@+id/rowMenuButton"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="4dp"
+            android:background="@drawable/focus_border"
+            android:contentDescription="@string/download_options"
+            android:focusable="true"
+            android:focusableInTouchMode="true"
+            android:padding="8dp"
+            android:src="@drawable/ic_more_vert" />
 
     </LinearLayout>
-
-    <!-- Three-dots menu (Download). Focusable so D-Pad users can reach it
-         from the row with RIGHT; tapping it opens a PopupMenu. -->
-    <ImageButton
-        android:id="@+id/rowMenuButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center_vertical"
-        android:layout_marginStart="8dp"
-        android:background="@drawable/focus_border"
-        android:contentDescription="@string/download_options"
-        android:focusable="true"
-        android:focusableInTouchMode="true"
-        android:padding="8dp"
-        android:src="@drawable/ic_more_vert" />
 
 </LinearLayout>

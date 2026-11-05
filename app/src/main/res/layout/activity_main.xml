@@ -1,24 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Main screen (v1.4.0 landing page, VidMate-style, top to bottom):
-  search row -> category chips -> app shortcuts -> suggestions (when
-  typing) -> results / home-feed list -> player (hidden until a video
-  loads) -> download popup (when a video plays) -> related videos ->
-  quality + download row -> bottom navigation (HOME / SHORTS / GAME /
-  MY FILES / ME).
+  Main screen (v1.6.0, VidMate reference, top to bottom):
+  search pill (magnifier + hint, mic + gear in the same row) ->
+  category chips (selected = BLACK pill) -> round app shortcuts
+  (icon + one-line label below, no boxes) -> suggestions (when
+  typing) -> results / home-feed video cards -> player (hidden until
+  a video loads) -> download popup with quality selector (when a video
+  plays) -> related videos -> floating rounded bottom navigation
+  (HOME / SHORTS / GAME / MY FILES / ME, selected tab red).
+  NO bottom download row anymore (v1.6.0): download lives only in the
+  popup below the playing video and in each card's download icon / ⋮
+  menu. No ads, no sponsored cards.
   D-Pad rules applied here:
   - Only actionable controls are focusable: search field, mic button,
-    search button, chips, shortcut buttons, results list rows, popup
-    buttons, quality spinner, download button, bottom-nav tabs.
-  - PlayerView, text views and icons are focusable="false" so D-Pad focus
-    can NEVER get trapped inside a non-actionable element.
-  - nextFocusDown chains the focus order top-to-bottom so a remote user
-    always has an escape route. GONE views (suggestions, popup, related,
-    player) are skipped by D-Pad focus search, so the chain still works
-    when parts hide.
+    gear button, chips, shortcut buttons, result cards (+ their
+    download / ⋮ buttons), popup controls, bottom-nav tabs.
+  - PlayerView, text views and icons are focusable="false" so D-Pad
+    focus can NEVER get trapped inside a non-actionable element.
+  - nextFocusDown chains the focus order top-to-bottom so a remote
+    user always has an escape route. GONE views (suggestions, popup,
+    related, player) are skipped by D-Pad focus search, so the chain
+    still works when parts hide.
   - The mic button is GONE on devices with no speech recognizer
-    (MainActivity hides it); GONE views are skipped by D-Pad focus search,
-    so the chain still works there.
+    (MainActivity hides it); GONE views are skipped by D-Pad focus
+    search, so the chain still works there.
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -28,18 +33,26 @@
     android:orientation="vertical"
     android:padding="16dp">
 
-    <!-- Search row -->
+    <!-- Search row: ONE clean row — a wide rounded grey pill (magnifier
+         + "Search or enter url"), a mic button and a gear button. No
+         separate SEARCH button (the reference has none; Enter on the
+         keyboard searches, as do the suggestions). The pill has NO red
+         border: its background is @drawable/search_pill (light grey,
+         grey border on focus only). -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:gravity="center_vertical"
         android:orientation="horizontal">
 
         <EditText
             android:id="@+id/searchInput"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="48dp"
             android:layout_weight="1"
-            android:background="@drawable/focus_border"
+            android:background="@drawable/search_pill"
+            android:drawableStart="@drawable/ic_search"
+            android:drawablePadding="8dp"
             android:focusable="true"
             android:focusableInTouchMode="true"
             android:hint="@string/search_hint"
@@ -47,60 +60,45 @@
             android:inputType="textUri"
             android:nextFocusDown="@+id/clearHistory"
             android:nextFocusRight="@+id/voiceButton"
-            android:padding="12dp"
+            android:paddingStart="16dp"
+            android:paddingEnd="12dp"
+            android:singleLine="true"
             android:textColor="@color/lt_text_primary"
             android:textColorHint="@color/lt_text_hint"
             android:textSize="16sp" />
 
-        <!-- Voice search (YouTube-style mic in the search bar). Tapping it
-             asks for the mic permission, then listens and searches what was
-             heard. Hidden at runtime where no recognizer exists. -->
+        <!-- Voice search (YouTube-style mic). Tapping it asks for the
+             mic permission, then listens and searches what was heard.
+             Hidden at runtime where no recognizer exists. -->
         <ImageButton
             android:id="@+id/voiceButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:background="@drawable/focus_border"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="4dp"
+            android:background="@drawable/icon_button_bg"
             android:contentDescription="@string/voice_search"
             android:focusable="true"
             android:focusableInTouchMode="true"
-            android:nextFocusDown="@+id/clearHistory"
+            android:nextFocusDown="@+id/chipAll"
             android:nextFocusLeft="@+id/searchInput"
-            android:nextFocusRight="@+id/searchButton"
+            android:nextFocusRight="@+id/settingsButton"
             android:nextFocusUp="@+id/searchInput"
             android:padding="12dp"
             android:src="@drawable/ic_mic" />
 
-        <Button
-            android:id="@+id/searchButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:background="@drawable/focus_border"
-            android:focusable="true"
-            android:focusableInTouchMode="true"
-            android:nextFocusDown="@+id/chipAll"
-            android:nextFocusLeft="@+id/voiceButton"
-            android:nextFocusRight="@+id/settingsButton"
-            android:nextFocusUp="@+id/searchInput"
-            android:padding="12dp"
-            android:text="@string/search"
-            android:textColor="@color/lt_text_primary" />
-
         <!-- Settings (v1.5.0): opens the professional Settings screen
-             (updates, downloads, about). Same focus rules as the mic and
-             search buttons; D-Pad RIGHT from Search, DOWN to the chips. -->
+             (updates, downloads, about). Same focus rules as the mic. -->
         <ImageButton
             android:id="@+id/settingsButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:background="@drawable/focus_border"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="4dp"
+            android:background="@drawable/icon_button_bg"
             android:contentDescription="@string/settings_title"
             android:focusable="true"
             android:focusableInTouchMode="true"
             android:nextFocusDown="@+id/chipAll"
-            android:nextFocusLeft="@+id/searchButton"
+            android:nextFocusLeft="@+id/voiceButton"
             android:nextFocusUp="@+id/searchInput"
             android:padding="12dp"
             android:src="@drawable/ic_settings" />
@@ -109,8 +107,8 @@
     <!-- Suggestions + recent searches, shown under the search bar while
          typing or while the field is focused and empty. GONE otherwise.
          Focus chain: search field -> Clear (history mode only) ->
-         suggestions list -> search button. GONE views are skipped by
-         D-Pad focus search, so the chain still works when parts hide. -->
+         suggestions list -> chips. GONE views are skipped by D-Pad
+         focus search, so the chain still works when parts hide. -->
     <LinearLayout
         android:id="@+id/suggestionsHeaderRow"
         android:layout_width="match_parent"
@@ -151,18 +149,22 @@
         android:layout_height="wrap_content"
         android:focusable="true"
         android:focusableInTouchMode="true"
-        android:nextFocusDown="@+id/searchButton"
+        android:nextFocusDown="@+id/chipAll"
         android:nextFocusUp="@+id/searchInput"
         android:visibility="gone" />
 
-    <!-- Category chips (v1.4.0 landing page, VidMate-style): horizontally
-         scrollable, one row, D-Pad LEFT/RIGHT between chips. "All" restores
-         the personalized home feed; the others load a feed for that
-         category. The selected chip gets @drawable/chip_selected (red) in
-         code; the rest use focus_border. The ScrollView itself is not
-         focusable — focus goes straight to the chips, and the view scrolls
-         to keep the focused chip visible. UP is left to geometric search
-         (the search row directly above); DOWN goes to the shortcuts row. -->
+    <!-- Category chips (VidMate reference): horizontally scrollable,
+         one row, D-Pad LEFT/RIGHT between chips. "All" restores the
+         home feed; the others load a feed for that category. The
+         SELECTED chip is a BLACK pill with white text
+         (@drawable/chip_selected); the rest are white pills with a
+         light-grey border (@drawable/chip_unselected). The ScrollView
+         itself is not focusable — focus goes straight to the chips, and
+         the view scrolls to keep the focused chip visible. UP is left
+         to geometric search (the search row directly above); DOWN goes
+         to the shortcuts row. Chip labels are singleLine so no label
+         ever wraps or clips mid-word ("Action Thrillers" scrolls, it
+         does not wrap). -->
     <HorizontalScrollView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -181,7 +183,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="8dp"
-                android:background="@drawable/focus_border"
+                android:background="@drawable/chip_unselected"
                 android:clickable="true"
                 android:focusable="true"
                 android:focusableInTouchMode="true"
@@ -190,6 +192,7 @@
                 android:paddingLeft="16dp"
                 android:paddingRight="16dp"
                 android:paddingTop="8dp"
+                android:singleLine="true"
                 android:text="@string/chip_all"
                 android:textColor="@color/lt_text_primary"
                 android:textSize="14sp" />
@@ -199,7 +202,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="8dp"
-                android:background="@drawable/focus_border"
+                android:background="@drawable/chip_unselected"
                 android:clickable="true"
                 android:focusable="true"
                 android:focusableInTouchMode="true"
@@ -208,6 +211,7 @@
                 android:paddingLeft="16dp"
                 android:paddingRight="16dp"
                 android:paddingTop="8dp"
+                android:singleLine="true"
                 android:text="@string/chip_shorts"
                 android:textColor="@color/lt_text_primary"
                 android:textSize="14sp" />
@@ -217,7 +221,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="8dp"
-                android:background="@drawable/focus_border"
+                android:background="@drawable/chip_unselected"
                 android:clickable="true"
                 android:focusable="true"
                 android:focusableInTouchMode="true"
@@ -226,6 +230,7 @@
                 android:paddingLeft="16dp"
                 android:paddingRight="16dp"
                 android:paddingTop="8dp"
+                android:singleLine="true"
                 android:text="@string/chip_music"
                 android:textColor="@color/lt_text_primary"
                 android:textSize="14sp" />
@@ -234,7 +239,7 @@
                 android:id="@+id/chipAction"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:background="@drawable/focus_border"
+                android:background="@drawable/chip_unselected"
                 android:clickable="true"
                 android:focusable="true"
                 android:focusableInTouchMode="true"
@@ -243,17 +248,22 @@
                 android:paddingLeft="16dp"
                 android:paddingRight="16dp"
                 android:paddingTop="8dp"
+                android:singleLine="true"
                 android:text="@string/chip_action"
                 android:textColor="@color/lt_text_primary"
                 android:textSize="14sp" />
         </LinearLayout>
     </HorizontalScrollView>
 
-    <!-- Quick-access shortcuts (v1.4.0 landing page): one tap opens the
-         app or its website (YouTube, WhatsApp, Facebook, Instagram, and
-         Sites for a few more). Each button is one focusable unit (icon +
-         label); D-Pad LEFT/RIGHT moves between them, UP returns to the
-         chips, DOWN to the results list. No ads, no sponsored cards. -->
+    <!-- Quick-access shortcuts (VidMate reference): ROUND app icons with
+         the label BELOW each icon — NO boxes/cards around them. Each
+         cell is one focusable unit (icon + label); D-Pad LEFT/RIGHT
+         moves between them, UP returns to the chips, DOWN to the results
+         list. Labels are singleLine at 10sp with ellipsize as a safety
+         net, so "WhatsApp" / "Instagram" never wrap mid-word the way
+         the boxed 11sp labels did. One tap opens the app or its
+         website (YouTube, WhatsApp, Facebook, Instagram, and Sites for
+         a few more). No ads, no sponsored cards. -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -264,9 +274,8 @@
             android:id="@+id/shortcutYouTube"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginEnd="6dp"
             android:layout_weight="1"
-            android:background="@drawable/focus_border"
+            android:background="@drawable/shortcut_bg"
             android:clickable="true"
             android:focusable="true"
             android:focusableInTouchMode="true"
@@ -274,31 +283,33 @@
             android:nextFocusDown="@+id/resultsList"
             android:nextFocusUp="@+id/chipAll"
             android:orientation="vertical"
-            android:padding="8dp">
+            android:padding="4dp">
 
             <ImageView
-                android:layout_width="28dp"
-                android:layout_height="28dp"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
                 android:focusable="false"
                 android:src="@drawable/ic_youtube" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:ellipsize="end"
                 android:focusable="false"
+                android:maxLines="1"
                 android:paddingTop="4dp"
+                android:singleLine="true"
                 android:text="@string/shortcut_youtube"
                 android:textColor="@color/lt_text_primary"
-                android:textSize="11sp" />
+                android:textSize="10sp" />
         </LinearLayout>
 
         <LinearLayout
             android:id="@+id/shortcutWhatsApp"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginEnd="6dp"
             android:layout_weight="1"
-            android:background="@drawable/focus_border"
+            android:background="@drawable/shortcut_bg"
             android:clickable="true"
             android:focusable="true"
             android:focusableInTouchMode="true"
@@ -306,31 +317,33 @@
             android:nextFocusDown="@+id/resultsList"
             android:nextFocusUp="@+id/chipAll"
             android:orientation="vertical"
-            android:padding="8dp">
+            android:padding="4dp">
 
             <ImageView
-                android:layout_width="28dp"
-                android:layout_height="28dp"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
                 android:focusable="false"
                 android:src="@drawable/ic_whatsapp" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:ellipsize="end"
                 android:focusable="false"
+                android:maxLines="1"
                 android:paddingTop="4dp"
+                android:singleLine="true"
                 android:text="@string/shortcut_whatsapp"
                 android:textColor="@color/lt_text_primary"
-                android:textSize="11sp" />
+                android:textSize="10sp" />
         </LinearLayout>
 
         <LinearLayout
             android:id="@+id/shortcutFacebook"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginEnd="6dp"
             android:layout_weight="1"
-            android:background="@drawable/focus_border"
+            android:background="@drawable/shortcut_bg"
             android:clickable="true"
             android:focusable="true"
             android:focusableInTouchMode="true"
@@ -338,31 +351,33 @@
             android:nextFocusDown="@+id/resultsList"
             android:nextFocusUp="@+id/chipAll"
             android:orientation="vertical"
-            android:padding="8dp">
+            android:padding="4dp">
 
             <ImageView
-                android:layout_width="28dp"
-                android:layout_height="28dp"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
                 android:focusable="false"
                 android:src="@drawable/ic_facebook" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:ellipsize="end"
                 android:focusable="false"
+                android:maxLines="1"
                 android:paddingTop="4dp"
+                android:singleLine="true"
                 android:text="@string/shortcut_facebook"
                 android:textColor="@color/lt_text_primary"
-                android:textSize="11sp" />
+                android:textSize="10sp" />
         </LinearLayout>
 
         <LinearLayout
             android:id="@+id/shortcutInstagram"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginEnd="6dp"
             android:layout_weight="1"
-            android:background="@drawable/focus_border"
+            android:background="@drawable/shortcut_bg"
             android:clickable="true"
             android:focusable="true"
             android:focusableInTouchMode="true"
@@ -370,22 +385,25 @@
             android:nextFocusDown="@+id/resultsList"
             android:nextFocusUp="@+id/chipAll"
             android:orientation="vertical"
-            android:padding="8dp">
+            android:padding="4dp">
 
             <ImageView
-                android:layout_width="28dp"
-                android:layout_height="28dp"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
                 android:focusable="false"
                 android:src="@drawable/ic_instagram" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:ellipsize="end"
                 android:focusable="false"
+                android:maxLines="1"
                 android:paddingTop="4dp"
+                android:singleLine="true"
                 android:text="@string/shortcut_instagram"
                 android:textColor="@color/lt_text_primary"
-                android:textSize="11sp" />
+                android:textSize="10sp" />
         </LinearLayout>
 
         <LinearLayout
@@ -393,7 +411,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:background="@drawable/focus_border"
+            android:background="@drawable/shortcut_bg"
             android:clickable="true"
             android:focusable="true"
             android:focusableInTouchMode="true"
@@ -401,22 +419,25 @@
             android:nextFocusDown="@+id/resultsList"
             android:nextFocusUp="@+id/chipAll"
             android:orientation="vertical"
-            android:padding="8dp">
+            android:padding="4dp">
 
             <ImageView
-                android:layout_width="28dp"
-                android:layout_height="28dp"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
                 android:focusable="false"
                 android:src="@drawable/ic_sites" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:ellipsize="end"
                 android:focusable="false"
+                android:maxLines="1"
                 android:paddingTop="4dp"
+                android:singleLine="true"
                 android:text="@string/shortcut_sites"
                 android:textColor="@color/lt_text_primary"
-                android:textSize="11sp" />
+                android:textSize="10sp" />
         </LinearLayout>
     </LinearLayout>
 
@@ -438,9 +459,9 @@
         android:textColor="@color/lt_text_secondary"
         android:textSize="14sp" />
 
-    <!-- Search results (and, on launch, the home feed). Each row is
-         focusable; the list itself is the D-Pad step between the
-         shortcuts row and the download popup / related list. -->
+    <!-- Search results (and, on launch, the home feed). Each video is a
+         card; the list itself is the D-Pad step between the shortcuts
+         row and the download popup / related list. -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/resultsList"
         android:layout_width="match_parent"
@@ -453,8 +474,8 @@
 
     <!-- Player. Deliberately NOT focusable: the remote must never land here,
          playback is controlled through the buttons below it. GONE until
-         the first video loads (v1.4.0): the landing page is the feed, not
-         an empty black player — MainActivity shows it on VideoState.Ready. -->
+         the first video loads: the landing page is the feed, not an empty
+         black player — MainActivity shows it on VideoState.Ready. -->
     <androidx.media3.ui.PlayerView
         android:id="@+id/playerView"
         android:layout_width="match_parent"
@@ -466,68 +487,100 @@
         app:controller_layout_id="@layout/player_controls"
         app:use_controller="true" />
 
-    <!-- Download popup (v1.4.0): appears directly below the playing video
-         when playback starts, never covering it. Download runs the same
-         flow as the player's Download button; × hides the popup until the
-         next video starts. Both buttons are focusable and sit in the
-         chain results -> popup -> related list. -->
+    <!-- Download popup (v1.4.0, quality selector added in v1.6.0):
+         appears directly below the playing video when playback starts,
+         never covering it. Row 1: the video's title + × to dismiss.
+         Row 2: the quality selector (Settings default pre-selected,
+         user can change it per download) + the Download button, which
+         runs the same flow as a card's download icon and the ⋮ menu.
+         The popup hides on dismiss until the next video starts. All
+         three controls are focusable and sit in the chain results ->
+         popup -> related list. -->
     <LinearLayout
         android:id="@+id/downloadPopup"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
         android:background="@drawable/focus_border"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:padding="8dp"
+        android:orientation="vertical"
+        android:padding="10dp"
         android:visibility="gone">
 
-        <TextView
-            android:id="@+id/downloadPopupTitle"
-            android:layout_width="0dp"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:ellipsize="end"
-            android:focusable="false"
-            android:maxLines="1"
-            android:textColor="@color/lt_text_primary"
-            android:textSize="14sp"
-            android:textStyle="bold" />
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
-        <Button
-            android:id="@+id/downloadPopupButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:background="@drawable/focus_border"
-            android:focusable="true"
-            android:focusableInTouchMode="true"
-            android:nextFocusDown="@+id/relatedList"
-            android:nextFocusRight="@+id/downloadPopupDismiss"
-            android:nextFocusUp="@+id/resultsList"
-            android:padding="10dp"
-            android:text="@string/download"
-            android:textColor="@color/lt_red"
-            android:textSize="14sp"
-            android:textStyle="bold" />
+            <TextView
+                android:id="@+id/downloadPopupTitle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:ellipsize="end"
+                android:focusable="false"
+                android:maxLines="1"
+                android:textColor="@color/lt_text_primary"
+                android:textSize="14sp"
+                android:textStyle="bold" />
 
-        <Button
-            android:id="@+id/downloadPopupDismiss"
-            android:layout_width="wrap_content"
+            <Button
+                android:id="@+id/downloadPopupDismiss"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/focus_border"
+                android:contentDescription="@string/dismiss_popup"
+                android:focusable="true"
+                android:focusableInTouchMode="true"
+                android:nextFocusDown="@+id/relatedList"
+                android:nextFocusLeft="@+id/downloadPopupButton"
+                android:nextFocusUp="@+id/resultsList"
+                android:padding="10dp"
+                android:text="×"
+                android:textColor="@color/lt_text_secondary"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:background="@drawable/focus_border"
-            android:contentDescription="@string/dismiss_popup"
-            android:focusable="true"
-            android:focusableInTouchMode="true"
-            android:nextFocusDown="@+id/relatedList"
-            android:nextFocusLeft="@+id/downloadPopupButton"
-            android:nextFocusUp="@+id/resultsList"
-            android:padding="10dp"
-            android:text="×"
-            android:textColor="@color/lt_text_secondary"
-            android:textSize="16sp"
-            android:textStyle="bold" />
+            android:layout_marginTop="8dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <Spinner
+                android:id="@+id/popupQualitySpinner"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:background="@drawable/focus_border"
+                android:focusable="true"
+                android:focusableInTouchMode="true"
+                android:nextFocusDown="@+id/relatedList"
+                android:nextFocusRight="@+id/downloadPopupButton"
+                android:nextFocusUp="@+id/resultsList"
+                android:padding="8dp" />
+
+            <Button
+                android:id="@+id/downloadPopupButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/focus_border"
+                android:focusable="true"
+                android:focusableInTouchMode="true"
+                android:nextFocusDown="@+id/relatedList"
+                android:nextFocusLeft="@+id/popupQualitySpinner"
+                android:nextFocusRight="@+id/downloadPopupDismiss"
+                android:nextFocusUp="@+id/resultsList"
+                android:padding="10dp"
+                android:text="@string/download"
+                android:textColor="@color/lt_red"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+        </LinearLayout>
     </LinearLayout>
 
     <!-- Title + metadata (not focusable). -->
@@ -550,8 +603,10 @@
         android:textSize="14sp" />
 
     <!-- Related videos for the loaded video. GONE until a video with
-         related items loads; rows reuse the results adapter and focus
-         rules, so D-Pad users move results -> related -> quality. -->
+         related items loads; cards reuse the results adapter and focus
+         rules. Height 220dp so one big card is mostly visible and the
+         list scrolls for the rest. D-Pad: results/popup -> related ->
+         bottom nav. -->
     <TextView
         android:id="@+id/relatedHeader"
         android:layout_width="match_parent"
@@ -567,76 +622,47 @@
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/relatedList"
         android:layout_width="match_parent"
-        android:layout_height="180dp"
+        android:layout_height="220dp"
         android:layout_marginTop="4dp"
         android:focusable="true"
         android:focusableInTouchMode="true"
-        android:nextFocusDown="@+id/qualitySpinner"
+        android:nextFocusDown="@+id/bottomHome"
         android:nextFocusUp="@+id/downloadPopupButton"
         android:visibility="gone" />
 
-    <!-- Quality + download row -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:orientation="horizontal">
-
-        <Spinner
-            android:id="@+id/qualitySpinner"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:background="@drawable/focus_border"
-            android:focusable="true"
-            android:focusableInTouchMode="true"
-            android:nextFocusDown="@+id/downloadButton"
-            android:nextFocusRight="@+id/downloadButton"
-            android:nextFocusUp="@+id/relatedList"
-            android:padding="8dp" />
-
-        <Button
-            android:id="@+id/downloadButton"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:layout_weight="1"
-            android:background="@drawable/focus_border"
-            android:enabled="false"
-            android:focusable="true"
-            android:focusableInTouchMode="true"
-            android:nextFocusLeft="@+id/qualitySpinner"
-            android:nextFocusUp="@+id/relatedList"
-            android:padding="14dp"
-            android:text="@string/download_to_gallery"
-            android:textColor="@color/lt_red"
-            android:textSize="16sp"
-            android:textStyle="bold" />
-    </LinearLayout>
-
-    <!-- Bottom navigation (v1.4.0 landing page, VidMate-style): a plain
-         LinearLayout of five icon+label buttons, always visible at the
-         bottom, D-Pad LEFT/RIGHT between tabs, UP back to the download
-         button. No Material dependency. HOME restores the home feed,
-         SHORTS/GAME load feeds, MY FILES opens the Downloads folder,
-         ME shows the about / check-for-updates panel. -->
+    <!-- Bottom navigation (VidMate reference): a FLOATING white pill,
+         lifted with elevation, always visible at the bottom. The five
+         tabs inside have no boxes of their own (transparent tab
+         background, grey on focus); the selected tab turns red in code.
+         D-Pad LEFT/RIGHT between tabs, UP back to the related list.
+         No Material dependency. HOME restores the home feed, SHORTS /
+         GAME load feeds, MY FILES opens the Downloads folder, ME shows
+         the about / check-for-updates panel. -->
     <LinearLayout
         android:id="@+id/bottomNav"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginLeft="12dp"
         android:layout_marginTop="12dp"
-        android:orientation="horizontal">
+        android:layout_marginRight="12dp"
+        android:layout_marginBottom="4dp"
+        android:background="@drawable/bottom_nav_bg"
+        android:elevation="4dp"
+        android:orientation="horizontal"
+        android:paddingBottom="4dp"
+        android:paddingTop="4dp">
 
         <LinearLayout
             android:id="@+id/bottomHome"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:background="@drawable/focus_border"
+            android:background="@drawable/tab_bg"
             android:clickable="true"
             android:focusable="true"
             android:focusableInTouchMode="true"
             android:gravity="center_horizontal"
-            android:nextFocusUp="@+id/downloadButton"
+            android:nextFocusUp="@+id/relatedList"
             android:orientation="vertical"
             android:paddingBottom="6dp"
             android:paddingTop="8dp">
@@ -652,11 +678,14 @@
                 android:id="@+id/bottomHomeLabel"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:ellipsize="end"
                 android:focusable="false"
+                android:maxLines="1"
                 android:paddingTop="2dp"
+                android:singleLine="true"
                 android:text="@string/nav_home"
                 android:textColor="@color/lt_text_secondary"
-                android:textSize="11sp" />
+                android:textSize="10sp" />
         </LinearLayout>
 
         <LinearLayout
@@ -664,12 +693,12 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:background="@drawable/focus_border"
+            android:background="@drawable/tab_bg"
             android:clickable="true"
             android:focusable="true"
             android:focusableInTouchMode="true"
             android:gravity="center_horizontal"
-            android:nextFocusUp="@+id/downloadButton"
+            android:nextFocusUp="@+id/relatedList"
             android:orientation="vertical"
             android:paddingBottom="6dp"
             android:paddingTop="8dp">
@@ -685,11 +714,14 @@
                 android:id="@+id/bottomShortsLabel"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:ellipsize="end"
                 android:focusable="false"
+                android:maxLines="1"
                 android:paddingTop="2dp"
+                android:singleLine="true"
                 android:text="@string/nav_shorts"
                 android:textColor="@color/lt_text_secondary"
-                android:textSize="11sp" />
+                android:textSize="10sp" />
         </LinearLayout>
 
         <LinearLayout
@@ -697,12 +729,12 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:background="@drawable/focus_border"
+            android:background="@drawable/tab_bg"
             android:clickable="true"
             android:focusable="true"
             android:focusableInTouchMode="true"
             android:gravity="center_horizontal"
-            android:nextFocusUp="@+id/downloadButton"
+            android:nextFocusUp="@+id/relatedList"
             android:orientation="vertical"
             android:paddingBottom="6dp"
             android:paddingTop="8dp">
@@ -718,11 +750,14 @@
                 android:id="@+id/bottomGameLabel"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:ellipsize="end"
                 android:focusable="false"
+                android:maxLines="1"
                 android:paddingTop="2dp"
+                android:singleLine="true"
                 android:text="@string/nav_game"
                 android:textColor="@color/lt_text_secondary"
-                android:textSize="11sp" />
+                android:textSize="10sp" />
         </LinearLayout>
 
         <LinearLayout
@@ -730,12 +765,12 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:background="@drawable/focus_border"
+            android:background="@drawable/tab_bg"
             android:clickable="true"
             android:focusable="true"
             android:focusableInTouchMode="true"
             android:gravity="center_horizontal"
-            android:nextFocusUp="@+id/downloadButton"
+            android:nextFocusUp="@+id/relatedList"
             android:orientation="vertical"
             android:paddingBottom="6dp"
             android:paddingTop="8dp">
@@ -751,11 +786,14 @@
                 android:id="@+id/bottomFilesLabel"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:ellipsize="end"
                 android:focusable="false"
+                android:maxLines="1"
                 android:paddingTop="2dp"
+                android:singleLine="true"
                 android:text="@string/nav_my_files"
                 android:textColor="@color/lt_text_secondary"
-                android:textSize="11sp" />
+                android:textSize="10sp" />
         </LinearLayout>
 
         <LinearLayout
@@ -763,12 +801,12 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:background="@drawable/focus_border"
+            android:background="@drawable/tab_bg"
             android:clickable="true"
             android:focusable="true"
             android:focusableInTouchMode="true"
             android:gravity="center_horizontal"
-            android:nextFocusUp="@+id/downloadButton"
+            android:nextFocusUp="@+id/relatedList"
             android:orientation="vertical"
             android:paddingBottom="6dp"
             android:paddingTop="8dp">
@@ -784,11 +822,14 @@
                 android:id="@+id/bottomMeLabel"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:ellipsize="end"
                 android:focusable="false"
+                android:maxLines="1"
                 android:paddingTop="2dp"
+                android:singleLine="true"
                 android:text="@string/nav_me"
                 android:textColor="@color/lt_text_secondary"
-                android:textSize="11sp" />
+                android:textSize="10sp" />
         </LinearLayout>
     </LinearLayout>
 
