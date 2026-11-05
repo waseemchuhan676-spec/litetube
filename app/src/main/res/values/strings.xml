@@ -1,9 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">LittleTube</string>
-    <string name="search_hint">Search or paste a video link…</string>
-    <string name="search">Search</string>
-    <string name="download_to_gallery">Download to Gallery</string>
+    <string name="search_hint">Search or enter url</string>
     <string name="play_pause">Play / Pause</string>
     <string name="status_idle">Enter a search term or a video link above.</string>
     <string name="status_loading">Loading…</string>

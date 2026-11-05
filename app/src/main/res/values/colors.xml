@@ -12,4 +12,6 @@
     <color name="lt_red_dark">#CC0000</color>
     <color name="lt_focus_fill">#FFF1F1</color>
     <color name="lt_border">#DADADA</color>
+    <!-- Search pill fill (v1.6.0): light grey, no red anywhere. -->
+    <color name="lt_pill_grey">#EFEFEF</color>
 </resources>
