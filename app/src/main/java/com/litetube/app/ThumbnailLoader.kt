@@ -12,14 +12,16 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 
 /**
- * Lightweight video thumbnails (v1.4.0, VidMate-style landing page).
+ * Lightweight video thumbnails (v1.4.0, VidMate-style landing page;
+ * v1.6.0: cards are large 16:9, so images are downsampled to ~320x180
+ * instead of ~120x90).
  *
  * No image library: plain OkHttp + BitmapFactory, one shared in-memory
- * LRU cache capped at 4 MB, every image downsampled to ~120x90 before
- * it is kept. A full feed of thumbnails is therefore well under 1 MB of
- * bitmaps — safe on 1 GB TVs. The loader is created once in MainActivity
- * and shared by both results adapters (home/search list and related list)
- * so there is only ever one cache.
+ * LRU cache capped at 4 MB, every image downsampled to ~320x180 before
+ * it is kept. A 320x180 bitmap is ~230 KB, so the cache holds roughly
+ * a screenful of cards — safe on 1 GB TVs. The loader is created once
+ * in MainActivity and shared by both results adapters (home/search list
+ * and related list) so there is only ever one cache.
  *
  * Each load tags the ImageView with the URL it asked for; a late result
  * is only applied if the tag still matches, so a recycled row never
@@ -85,8 +87,9 @@ class ThumbnailLoader(
 
     /**
      * Decode at the smallest power-of-two sample that still covers
-     * 120x90. A 120x90 default.jpg decodes at sample 1; a 320x180
-     * mqdefault at sample 2 — either way the kept bitmap is tiny.
+     * 320x180. A 320x180 mqdefault decodes at sample 1; a 1280x720
+     * maxresdefault at sample 4 — either way the kept bitmap is a
+     * 16:9 card thumbnail, never a full-size image.
      */
     private fun decodeDownsampled(bytes: ByteArray): Bitmap? {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
@@ -105,7 +108,7 @@ class ThumbnailLoader(
     companion object {
         /** Whole in-memory thumbnail cache: 4 MB, shared by both lists. */
         private const val MAX_CACHE_BYTES = 4 * 1024 * 1024
-        private const val THUMB_WIDTH_PX = 120
-        private const val THUMB_HEIGHT_PX = 90
+        private const val THUMB_WIDTH_PX = 320
+        private const val THUMB_HEIGHT_PX = 180
     }
 }

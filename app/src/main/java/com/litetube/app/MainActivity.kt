@@ -84,6 +84,18 @@ import java.util.Locale
  * download runs through the Settings gate first (WiFi-only, size
  * limits) — see downloadStreams().
  *
+ * Home restyle (v1.6.0, VidMate reference, exact): grey search pill
+ * (no red border, no separate SEARCH button — Enter searches), black
+ * selected chip, round shortcut icons with one-line labels below and
+ * no boxes, large 16:9 video cards with a download icon + ⋮ on the
+ * meta line, floating rounded bottom nav (selected tab red). The
+ * bottom quality + DOWNLOAD row is GONE: download lives only in the
+ * popup below the playing video (which now carries the quality
+ * selector, Settings default pre-selected) and in each card's
+ * download icon / ⋮ menu. The home feed fallback is fixed too:
+ * personalized feed -> live kiosk feed -> idle text, so a failed
+ * personalized fetch can never leave the home blank.
+ *
  * Update checks live in LiteTubeApp (Application scope), not here. This
  * activity only calls installPendingUpdate() on resume: after the user
  * returns from the "Install unknown apps" settings screen, the
@@ -130,8 +142,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var playerView: PlayerView
     private lateinit var videoTitle: TextView
     private lateinit var videoMeta: TextView
-    private lateinit var qualitySpinner: Spinner
-    private lateinit var downloadButton: Button
+    /** Quality selector inside the download popup (v1.6.0): the old
+     *  bottom-row spinner is gone; the popup carries the choice now. */
+    private lateinit var popupQualitySpinner: Spinner
+    /** True while the home feed is loading (v1.6.0): the Idle state
+     *  must not hide the loading bar mid-load (see observeStates). */
+    private var feedLoading = false
     private lateinit var suggestionsHeaderRow: View
     private lateinit var suggestionsHeader: TextView
     private lateinit var clearHistory: TextView
@@ -199,8 +215,6 @@ class MainActivity : AppCompatActivity() {
         loadingBar = findViewById(R.id.loadingBar)
         videoTitle = findViewById(R.id.videoTitle)
         videoMeta = findViewById(R.id.videoMeta)
-        qualitySpinner = findViewById(R.id.qualitySpinner)
-        downloadButton = findViewById(R.id.downloadButton)
 
         val resultsList = findViewById<RecyclerView>(R.id.resultsList)
         resultsList.layoutManager = LinearLayoutManager(this)
@@ -209,6 +223,7 @@ class MainActivity : AppCompatActivity() {
                 lifecycleScope.launch { repository.loadStream(item.url) }
             },
             onMenuClick = { item, anchor -> showRowMenu(item, anchor) },
+            onDownloadClick = { item -> downloadRowVideo(item) },
             thumbnailLoader = thumbnailLoader
         )
         resultsList.adapter = resultsAdapter
@@ -229,6 +244,7 @@ class MainActivity : AppCompatActivity() {
                 lifecycleScope.launch { repository.loadStream(item.url) }
             },
             onMenuClick = { item, anchor -> showRowMenu(item, anchor) },
+            onDownloadClick = { item -> downloadRowVideo(item) },
             thumbnailLoader = thumbnailLoader
         )
         relatedList.adapter = relatedAdapter
@@ -267,42 +283,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        val qualityLabels = listOf(
-            getString(R.string.quality_1080),
-            getString(R.string.quality_720),
-            getString(R.string.quality_480),
-            getString(R.string.quality_360),
-            getString(R.string.quality_audio)
-        )
-        qualitySpinner.adapter = ArrayAdapter(
-            this,
-            android.R.layout.simple_spinner_item,
-            qualityLabels
-        ).apply {
-            setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        }
-        // A user tap on the spinner overrides the Settings default for
-        // this video (see effectiveDownloadQuality). Programmatic
-        // selections (applyDefaultQuality) are suppressed so they never
-        // count as an override. The listener is attached BEFORE the
-        // first programmatic selection, so the attach-time callback is
-        // suppressed too, and touched is reset right after.
-        qualitySpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(
-                parent: AdapterView<*>?,
-                view: View?,
-                position: Int,
-                id: Long
-            ) {
-                if (!suppressSpinnerCallback) spinnerTouchedByUser = true
-            }
-
-            override fun onNothingSelected(parent: AdapterView<*>?) = Unit
-        }
-        applyDefaultQuality()
-
-        findViewById<Button>(R.id.searchButton).setOnClickListener { doSearch() }
-
         // Settings (v1.5.0): gear button next to the search bar.
         findViewById<ImageButton>(R.id.settingsButton).setOnClickListener { openSettings() }
 
@@ -314,6 +294,9 @@ class MainActivity : AppCompatActivity() {
         if (!SpeechRecognizer.isRecognitionAvailable(this)) {
             voiceButton.visibility = View.GONE
         }
+        // The search field's Enter key (IME_ACTION_SEARCH) runs the
+        // search — there is no separate SEARCH button anymore (v1.6.0,
+        // VidMate reference: the pill is the whole search row).
         searchInput.setOnEditorActionListener { _, actionId, _ ->
             if (actionId == EditorInfo.IME_ACTION_SEARCH) {
                 doSearch()
@@ -322,8 +305,6 @@ class MainActivity : AppCompatActivity() {
                 false
             }
         }
-
-        downloadButton.setOnClickListener { doDownload() }
 
         setupLandingPage()
 
@@ -339,24 +320,40 @@ class MainActivity : AppCompatActivity() {
     /**
      * Fetches the home feed once, on launch: videos related to the user's
      * own recent searches when there is any history, otherwise the live
-     * kiosk feed as a fallback so the home is never empty. No header is
-     * shown on the home (user choice) — the videos just appear under the
-     * search bar. On any failure (or an empty feed) the home falls back
-     * to the idle text — never an error state, never blocking search.
+     * kiosk feed. No header is shown on the home (user choice) — the
+     * videos just appear under the search bar.
+     *
+     * Fallback chain (v1.6.0 — this is the fix for the empty home):
+     * personalized feed -> live kiosk feed -> idle text. The old code
+     * tried ONLY the personalized feed when history existed, so a
+     * failed personalized fetch (slow network, extractor hiccup) left
+     * the home blank with just the idle text. Now an empty personalized
+     * result ALWAYS falls back to the kiosk, and only a failed kiosk
+     * too shows the idle text. The loading bar stays visible across
+     * both attempts, and the Idle state never hides it mid-load
+     * (feedLoading guard in observeStates).
      */
     private fun loadHomeFeed() {
         lifecycleScope.launch {
+            feedLoading = true
             loadingBar.visibility = View.VISIBLE
             statusText.text = getString(R.string.status_loading)
             val history = searchHistory.load()
-            val items = if (history.isEmpty()) {
+            var items = if (history.isEmpty()) {
                 repository.loadHomeFeed()
             } else {
                 repository.loadPersonalizedFeed(history)
             }
+            // Personalized came back empty (every term failed or found
+            // nothing): fall back to the live kiosk so the home is
+            // never blank while the network works.
+            if (items.isEmpty() && history.isNotEmpty()) {
+                items = repository.loadHomeFeed()
+            }
             // Remember the feed even if it arrives too late to show: the
             // user may still clear the field later and restore it.
             if (items.isNotEmpty()) cachedFeedItems = items
+            feedLoading = false
             // The user may have searched (or loaded a video) while the
             // feed was loading: never let the late feed overwrite search
             // results or a loaded video — only show it on a still-empty home.
@@ -423,6 +420,46 @@ class MainActivity : AppCompatActivity() {
         }
         downloadPopupDismiss.setOnClickListener { hideDownloadPopup() }
 
+        // Quality selector, now INSIDE the download popup (v1.6.0 — the
+        // bottom quality + download row is gone). The spinner offers
+        // every quality including Best (the old bottom spinner had no
+        // Best entry); the Settings default is pre-selected by
+        // applyDefaultQuality(). A user tap overrides the default for
+        // this video (see effectiveDownloadQuality). Programmatic
+        // selections are suppressed so they never count as an override.
+        // The listener is attached BEFORE the first programmatic
+        // selection, so the attach-time callback is suppressed too.
+        popupQualitySpinner = findViewById(R.id.popupQualitySpinner)
+        val qualityLabels = listOf(
+            getString(R.string.settings_quality_best),
+            getString(R.string.quality_1080),
+            getString(R.string.quality_720),
+            getString(R.string.quality_480),
+            getString(R.string.quality_360),
+            getString(R.string.quality_audio)
+        )
+        popupQualitySpinner.adapter = ArrayAdapter(
+            this,
+            android.R.layout.simple_spinner_item,
+            qualityLabels
+        ).apply {
+            setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        }
+        popupQualitySpinner.onItemSelectedListener =
+            object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(
+                    parent: AdapterView<*>?,
+                    view: View?,
+                    position: Int,
+                    id: Long
+                ) {
+                    if (!suppressSpinnerCallback) spinnerTouchedByUser = true
+                }
+
+                override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+            }
+        applyDefaultQuality()
+
         bottomTabLabels = listOf(
             findViewById(R.id.bottomHomeLabel),
             findViewById(R.id.bottomShortsLabel),
@@ -461,9 +498,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Marks [chip] as the selected category (red pill, white text) and
-     * returns the others to the plain card style. Null clears the
-     * selection (used by GAME, which has no chip).
+     * Marks [chip] as the selected category (BLACK pill, white text,
+     * v1.6.0 reference) and returns the others to the plain white pill
+     * style. Null clears the selection (used by GAME, which has no chip).
      */
     private fun selectChip(chip: TextView?) {
         val allChips = listOf(chipAll, chipShorts, chipMusic, chipAction)
@@ -472,7 +509,7 @@ class MainActivity : AppCompatActivity() {
                 c.setBackgroundResource(R.drawable.chip_selected)
                 c.setTextColor(ContextCompat.getColor(this, R.color.lt_surface))
             } else {
-                c.setBackgroundResource(R.drawable.focus_border)
+                c.setBackgroundResource(R.drawable.chip_unselected)
                 c.setTextColor(ContextCompat.getColor(this, R.color.lt_text_primary))
             }
         }
@@ -638,9 +675,9 @@ class MainActivity : AppCompatActivity() {
 
     /**
      * Shows the download card below the player when a video starts
-     * playing, with the video's title. The Download button runs the same
-     * flow as the player's Download button; × hides the card until the
-     * next video starts.
+     * playing, with the video's title and the quality selector. The
+     * Download button runs the shared download flow; × hides the card
+     * until the next video starts.
      */
     private fun showDownloadPopup(title: String) {
         downloadPopupTitle.text = title
@@ -656,7 +693,11 @@ class MainActivity : AppCompatActivity() {
             repository.state.collect { state ->
                 when (state) {
                     is VideoState.Idle -> {
-                        loadingBar.visibility = View.GONE
+                        // The state flow starts at Idle, so this fires
+                        // once at launch — but loadHomeFeed may already
+                        // be showing the loading bar by then. Never hide
+                        // it mid-load (v1.6.0 feed fix).
+                        if (!feedLoading) loadingBar.visibility = View.GONE
                     }
                     is VideoState.Loading -> {
                         loadingBar.visibility = View.VISIBLE
@@ -685,7 +726,6 @@ class MainActivity : AppCompatActivity() {
                         currentStreams = state.streams
                         videoTitle.text = state.streams.title
                         videoMeta.text = state.streams.uploader
-                        downloadButton.isEnabled = true
                         // New video: the quality spinner goes back to the
                         // Settings default (v1.5.0) — any override the user
                         // made for the previous video does not carry over.
@@ -951,40 +991,42 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Sets the quality spinner to the Settings default (v1.5.0) and
-     * clears the per-video override: called once at launch and on every
-     * video load. The programmatic selection is suppressed so the
-     * spinner listener does not mistake it for a user tap.
-     * BEST shows as 1080p in the spinner (the closest label): for
-     * progressive streams the two pick the same file in practice.
+     * Sets the popup quality spinner to the Settings default (v1.5.0)
+     * and clears the per-video override: called once at launch (from
+     * setupLandingPage) and on every video load. The programmatic
+     * selection is suppressed so the spinner listener does not mistake
+     * it for a user tap. The popup spinner offers Best as its first
+     * entry (v1.6.0), so the display now matches the default exactly —
+     * including AUDIO, which the old bottom spinner showed as 1080p.
      */
     private fun applyDefaultQuality() {
         val position = when (settings.defaultQuality) {
-            DownloadQuality.BEST, DownloadQuality.P1080 -> 0
-            DownloadQuality.P720 -> 1
-            DownloadQuality.P480 -> 2
-            DownloadQuality.P360 -> 3
-            DownloadQuality.AUDIO -> 0
+            DownloadQuality.BEST -> 0
+            DownloadQuality.P1080 -> 1
+            DownloadQuality.P720 -> 2
+            DownloadQuality.P480 -> 3
+            DownloadQuality.P360 -> 4
+            DownloadQuality.AUDIO -> 5
         }
         suppressSpinnerCallback = true
-        qualitySpinner.setSelection(position)
+        popupQualitySpinner.setSelection(position)
         suppressSpinnerCallback = false
         spinnerTouchedByUser = false
     }
 
     /**
-     * The quality a download actually uses: the spinner's selection when
-     * the user picked one for this video, otherwise the Settings default
-     * (v1.5.0). The spinner never offers BEST, so an untouched spinner
-     * with a BEST default still downloads BEST, not 1080p.
+     * The quality a download actually uses: the popup spinner's
+     * selection when the user picked one for this video, otherwise the
+     * Settings default (v1.5.0).
      */
     private fun effectiveDownloadQuality(): DownloadQuality {
         if (spinnerTouchedByUser) {
-            return when (qualitySpinner.selectedItemPosition) {
-                0 -> DownloadQuality.P1080
-                1 -> DownloadQuality.P720
-                2 -> DownloadQuality.P480
-                3 -> DownloadQuality.P360
+            return when (popupQualitySpinner.selectedItemPosition) {
+                0 -> DownloadQuality.BEST
+                1 -> DownloadQuality.P1080
+                2 -> DownloadQuality.P720
+                3 -> DownloadQuality.P480
+                4 -> DownloadQuality.P360
                 else -> DownloadQuality.AUDIO
             }
         }
@@ -992,8 +1034,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * The one download path, shared by the player's Download button, the
-     * download popup and a row's ⋮ menu: legacy-storage permission
+     * The one download path, shared by the download popup, a card's
+     * download icon and a row's ⋮ menu: legacy-storage permission
      * first, then the effective quality, then the Settings gate
      * (v1.5.0) — WiFi-only and the size limit for the current network —
      * and only then the Gallery download. Status messages come from the
@@ -1080,10 +1122,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Row ⋮ menu -> Download: the list item has no resolved streams yet,
-     * so resolve them first (one network call, no playback and no state
-     * change — resolveStream never touches the shared state flow), then
-     * download through the same path as the player's Download button.
+     * Row ⋮ menu / card download icon -> Download: the list item has no
+     * resolved streams yet, so resolve them first (one network call, no
+     * playback and no state change — resolveStream never touches the
+     * shared state flow), then download through the shared path.
      */
     private fun downloadRowVideo(item: VideoItem) {
         lifecycleScope.launch {

@@ -23,28 +23,29 @@ fun formatDuration(totalSeconds: Long): String {
 }
 
 /**
- * Search results adapter. Each row is a single focusable unit (see
- * item_result.xml) so D-Pad users move row-to-row with UP/DOWN and select
- * with CENTER — no nested focusable children to get trapped in.
+ * Search results adapter. Each video is a vertical CARD (v1.6.0,
+ * VidMate reference): a large 16:9 thumbnail on top, title + meta
+ * below, and a download icon + ⋮ button on the meta line. The whole
+ * card is one focusable unit for D-Pad; the download icon and the ⋮
+ * button are two extra focus stops per card.
  *
- * The three-dots button is the one extra focus stop per row (VidMate-style
- * download menu): RIGHT from the row reaches it (the row's
- * nextFocusRight points at it and is resolved inside this row's own
- * subtree, so duplicate ids across rows are safe), LEFT on the button
- * returns to the row (handled in code below, because the button cannot
- * resolve its parent row by id — findViewById only searches downwards).
- * UP/DOWN from the button fall through to the list's normal geometric
- * row-to-row movement.
+ * Focus chain per card: card --RIGHT--> download button --RIGHT-->
+ * ⋮ button; LEFT walks back the same way (handled in code below,
+ * because a button cannot resolve its parent card by id —
+ * findViewById only searches downwards). UP/DOWN fall through to the
+ * list's normal geometric card-to-card movement.
  *
- * Thumbnails (v1.4.0): each row shows the video's small thumbnail on the
- * left, loaded by the shared [thumbnailLoader] (one 4 MB cache for both
- * lists). The loader tags the ImageView with the URL, so a recycled row
- * never shows a stale image; an empty/failed thumbnail leaves the
+ * Thumbnails (v1.4.0, 16:9 cards in v1.6.0): each card shows the
+ * video's 16:9 thumbnail (usually mqdefault.jpg, 320x180), loaded by
+ * the shared [thumbnailLoader] (one 4 MB cache for both lists). The
+ * loader tags the ImageView with the URL, so a recycled card never
+ * shows a stale image; an empty/failed thumbnail leaves the
  * light-grey placeholder background visible.
  */
 class SearchResultsAdapter(
     private val onItemClick: (VideoItem) -> Unit,
     private val onMenuClick: (VideoItem, View) -> Unit,
+    private val onDownloadClick: (VideoItem) -> Unit,
     private val thumbnailLoader: ThumbnailLoader
 ) : RecyclerView.Adapter<SearchResultsAdapter.ResultViewHolder>() {
 
@@ -59,6 +60,7 @@ class SearchResultsAdapter(
         val thumbnail: ImageView = view.findViewById(R.id.resultThumbnail)
         val title: TextView = view.findViewById(R.id.resultTitle)
         val meta: TextView = view.findViewById(R.id.resultMeta)
+        val downloadButton: ImageButton = view.findViewById(R.id.rowDownloadButton)
         val menuButton: ImageButton = view.findViewById(R.id.rowMenuButton)
     }
 
@@ -79,25 +81,40 @@ class SearchResultsAdapter(
             "${item.uploader} • $duration"
         }
         holder.itemView.setOnClickListener { onItemClick(item) }
+        holder.downloadButton.setOnClickListener { onDownloadClick(item) }
         holder.menuButton.setOnClickListener { onMenuClick(item, it) }
-        // D-Pad: RIGHT on the row moves into its own ⋮ button (the XML
+        // D-Pad: RIGHT walks card -> download icon -> ⋮ button (the XML
         // nextFocusRight is the same route; this is the deterministic
-        // fallback). LEFT on the button returns to the row.
+        // fallback). LEFT walks back the same way.
         holder.itemView.setOnKeyListener { _, keyCode, event ->
             if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT &&
                 event.action == KeyEvent.ACTION_DOWN
             ) {
-                holder.menuButton.requestFocus()
+                holder.downloadButton.requestFocus()
                 true
             } else {
                 false
+            }
+        }
+        holder.downloadButton.setOnKeyListener { _, keyCode, event ->
+            if (event.action != KeyEvent.ACTION_DOWN) return@setOnKeyListener false
+            when (keyCode) {
+                KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                    holder.menuButton.requestFocus()
+                    true
+                }
+                KeyEvent.KEYCODE_DPAD_LEFT -> {
+                    holder.itemView.requestFocus()
+                    true
+                }
+                else -> false
             }
         }
         holder.menuButton.setOnKeyListener { _, keyCode, event ->
             if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT &&
                 event.action == KeyEvent.ACTION_DOWN
             ) {
-                holder.itemView.requestFocus()
+                holder.downloadButton.requestFocus()
                 true
             } else {
                 false

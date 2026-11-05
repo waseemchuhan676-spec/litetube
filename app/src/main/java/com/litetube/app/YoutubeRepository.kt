@@ -12,10 +12,11 @@ import org.schabi.newpipe.extractor.stream.StreamInfo
 import org.schabi.newpipe.extractor.stream.StreamInfoItem
 import org.schabi.newpipe.extractor.stream.VideoStream
 
-/** One row in the search results list. [thumbnailUrl] is the smallest
- *  thumbnail the extractor returned for the video (v1.4.0, VidMate-style
- *  landing page) — empty when the extractor gave none, in which case
- *  the row shows the light-grey placeholder instead. */
+/** One row in the search results list. [thumbnailUrl] is a 16:9
+ *  thumbnail for the video card (v1.6.0) — the smallest 16:9 image the
+ *  extractor returned (usually mqdefault.jpg, 320x180) — empty when the
+ *  extractor gave none, in which case the card shows the light-grey
+ *  placeholder instead. */
 data class VideoItem(
     val title: String,
     val uploader: String,
@@ -107,7 +108,7 @@ class YoutubeRepository {
                             uploader = item.uploaderName,
                             durationSeconds = item.duration,
                             url = item.url,
-                            thumbnailUrl = smallestThumbnail(item)
+                            thumbnailUrl = cardThumbnail(item)
                         )
                     }
                 val nextPage = try {
@@ -195,7 +196,7 @@ class YoutubeRepository {
                             uploader = item.uploaderName,
                             durationSeconds = item.duration,
                             url = item.url,
-                            thumbnailUrl = smallestThumbnail(item)
+                            thumbnailUrl = cardThumbnail(item)
                         )
                     }
             }
@@ -277,7 +278,7 @@ class YoutubeRepository {
                                 uploader = item.uploaderName,
                                 durationSeconds = item.duration,
                                 url = item.url,
-                                thumbnailUrl = smallestThumbnail(item)
+                                thumbnailUrl = cardThumbnail(item)
                             )
                         }
                 )
@@ -288,27 +289,33 @@ class YoutubeRepository {
     }
 
     /**
-     * The smallest thumbnail the extractor returned for a video (v1.4.0):
-     * YouTube usually lists several sizes per video (120x90 default.jpg,
-     * 320x180 mqdefault, 480x360 hqdefault, ...). The smallest keeps the
-     * download tiny and the bitmap ~120x90 on 1 GB TVs. Unknown sizes
-     * (-1) are ignored; a "default.jpg" URL is the fallback; empty when
-     * the extractor gave no thumbnails at all (the row then shows the
-     * placeholder). Never throws.
+     * The card thumbnail for a video (v1.6.0): the video cards are
+     * large 16:9, so prefer the smallest 16:9 image the extractor
+     * returned — usually mqdefault.jpg (320x180), a big look without
+     * a big download. Fallbacks: a "mqdefault.jpg" URL, then the
+     * smallest image of any shape, then the first image. Empty when
+     * the extractor gave no thumbnails at all (the card then shows
+     * the placeholder). Never throws.
      */
-    private fun smallestThumbnail(item: StreamInfoItem): String {
+    private fun cardThumbnail(item: StreamInfoItem): String {
         val images = try {
             item.thumbnails
         } catch (e: Exception) {
             emptyList()
         }
         if (images.isEmpty()) return ""
-        val smallest = images
+        // 16:9 is a width/height ratio of ~1.78; accept 1.70–1.85 so
+        // slightly off sizes still count as wide.
+        val wide = images
             .filter { it.width > 0 && it.height > 0 }
+            .filter { it.width.toDouble() / it.height in 1.70..1.85 }
             .minByOrNull { it.width * it.height }
-            ?: images.firstOrNull { it.url.contains("default.jpg") }
-            ?: images.firstOrNull()
-        return smallest?.url ?: ""
+        if (wide != null) return wide.url
+        return images.firstOrNull { it.url.contains("mqdefault.jpg") }?.url
+            ?: images.filter { it.width > 0 && it.height > 0 }
+                .minByOrNull { it.width * it.height }?.url
+            ?: images.firstOrNull()?.url
+            ?: ""
     }
 
     companion object {
