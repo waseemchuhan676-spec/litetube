@@ -1,8 +1,12 @@
 package com.litetube.app
 
 import android.Manifest
+import android.app.DownloadManager
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.ColorStateList
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.speech.RecognitionListener
@@ -16,10 +20,12 @@ import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageButton
+import android.widget.ImageView
 import android.widget.PopupMenu
 import android.widget.ProgressBar
 import android.widget.Spinner
 import android.widget.TextView
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -48,14 +54,28 @@ import java.util.Locale
  * without the Google app), and the mic permission is asked only when the
  * button is tapped, never at app start.
  *
- * Home feed (v1.3.0): on launch the app shows YouTube's suggested videos
- * (the default kiosk feed) in the results list under a "Suggested videos"
- * header, YouTube/VidMate-style, so the home is not empty. A search
- * replaces the feed; clearing the field restores the cached feed.
- * Tapping any video auto-plays it (playBestStream runs on every load).
- * Every video row has a ⋮ button opening a Download-only menu that
- * downloads that video to the Gallery via the same path as the player's
- * Download button.
+ * Home feed (v1.4.0, personalized): on launch the app shows videos
+ * related to the user's OWN recent searches (the most recent terms are
+ * searched and merged, VidMate-style), with NO header/title on the home.
+ * With no search history yet it falls back to the live kiosk feed so
+ * the home is never empty. A search replaces the feed; clearing the
+ * field restores the cached feed. Tapping any video auto-plays it
+ * (playBestStream runs on every load). Every video row has a ⋮ button
+ * opening a Download-only menu that downloads that video to the Gallery
+ * via the same path as the player's Download button, and a small
+ * thumbnail on the left (ThumbnailLoader, one 4 MB cache for both lists).
+ *
+ * Landing page (v1.4.0, VidMate-style): category chips under the search
+ * bar (All restores the home feed, the others load a feed for that
+ * category), a quick-access row (YouTube, WhatsApp, Facebook, Instagram,
+ * Sites — each opens the app if installed, else its website), and a
+ * bottom navigation bar (HOME / SHORTS / GAME / MY FILES / ME). The
+ * player stays hidden until the first video loads, so the landing page
+ * is the feed, not an empty black player. No ads, no sponsored cards.
+ *
+ * Download popup (v1.4.0): when a video starts playing, a card appears
+ * directly below the player with a Download button (same download flow)
+ * and a × to dismiss it until the next video.
  *
  * Update checks live in LiteTubeApp (Application scope), not here. This
  * activity only calls installPendingUpdate() on resume: after the user
@@ -91,7 +111,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var voiceButton: ImageButton
     private lateinit var statusText: TextView
     private lateinit var loadingBar: ProgressBar
-    private lateinit var feedHeader: TextView
+    private lateinit var playerView: PlayerView
     private lateinit var videoTitle: TextView
     private lateinit var videoMeta: TextView
     private lateinit var qualitySpinner: Spinner
@@ -102,6 +122,21 @@ class MainActivity : AppCompatActivity() {
     private lateinit var suggestionsList: RecyclerView
     private lateinit var relatedHeader: TextView
     private lateinit var relatedList: RecyclerView
+    /** One shared thumbnail loader (one 4 MB cache) for both lists. */
+    private lateinit var thumbnailLoader: ThumbnailLoader
+    /** Download popup below the player (v1.4.0). */
+    private lateinit var downloadPopup: View
+    private lateinit var downloadPopupTitle: TextView
+    private lateinit var downloadPopupButton: Button
+    private lateinit var downloadPopupDismiss: Button
+    /** Category chips (v1.4.0). */
+    private lateinit var chipAll: TextView
+    private lateinit var chipShorts: TextView
+    private lateinit var chipMusic: TextView
+    private lateinit var chipAction: TextView
+    /** Bottom-nav tabs (v1.4.0): labels + icons, same order. */
+    private lateinit var bottomTabLabels: List<TextView>
+    private lateinit var bottomTabIcons: List<ImageView>
 
     companion object {
         private const val LEGACY_STORAGE_REQUEST = 1001
@@ -114,6 +149,19 @@ class MainActivity : AppCompatActivity() {
         private const val SUGGESTION_DEBOUNCE_MS = 300L
         /** Most keyword rows shown under the search bar at once. */
         private const val MAX_SUGGESTIONS = 8
+        /** Bottom-nav tab indexes, matching selectBottomTab(). */
+        private const val TAB_HOME = 0
+        private const val TAB_SHORTS = 1
+        private const val TAB_GAME = 2
+        private const val TAB_FILES = 3
+        private const val TAB_ME = 4
+        /** Category-feed search terms (chips + bottom nav). These are
+         *  navigation, not user searches: they are never saved to the
+         *  search history. */
+        private const val QUERY_SHORTS = "shorts videos"
+        private const val QUERY_MUSIC = "music"
+        private const val QUERY_ACTION = "action movie trailers"
+        private const val QUERY_GAMING = "gaming videos"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -122,14 +170,16 @@ class MainActivity : AppCompatActivity() {
 
         repository = YoutubeRepository()
         playerManager = PlayerManager(this, okHttpClient)
-        playerManager.bind(findViewById(R.id.playerView))
+        playerView = findViewById(R.id.playerView)
+        playerManager.bind(playerView)
         downloader = GalleryDownloader(this, okHttpClient)
         searchHistory = SearchHistory(this)
+        // One shared thumbnail loader (one 4 MB cache) for both lists.
+        thumbnailLoader = ThumbnailLoader(okHttpClient, lifecycleScope)
 
         searchInput = findViewById(R.id.searchInput)
         statusText = findViewById(R.id.statusText)
         loadingBar = findViewById(R.id.loadingBar)
-        feedHeader = findViewById(R.id.feedHeader)
         videoTitle = findViewById(R.id.videoTitle)
         videoMeta = findViewById(R.id.videoMeta)
         qualitySpinner = findViewById(R.id.qualitySpinner)
@@ -141,7 +191,8 @@ class MainActivity : AppCompatActivity() {
             onItemClick = { item ->
                 lifecycleScope.launch { repository.loadStream(item.url) }
             },
-            onMenuClick = { item, anchor -> showRowMenu(item, anchor) }
+            onMenuClick = { item, anchor -> showRowMenu(item, anchor) },
+            thumbnailLoader = thumbnailLoader
         )
         resultsList.adapter = resultsAdapter
 
@@ -160,7 +211,8 @@ class MainActivity : AppCompatActivity() {
             onItemClick = { item ->
                 lifecycleScope.launch { repository.loadStream(item.url) }
             },
-            onMenuClick = { item, anchor -> showRowMenu(item, anchor) }
+            onMenuClick = { item, anchor -> showRowMenu(item, anchor) },
+            thumbnailLoader = thumbnailLoader
         )
         relatedList.adapter = relatedAdapter
 
@@ -177,9 +229,10 @@ class MainActivity : AppCompatActivity() {
                 refreshSuggestions()
                 // Field cleared back to empty: bring the home feed back
                 // from the cache (no network call). If the feed never
-                // loaded, leave whatever results are showing.
+                // loaded, leave whatever results are showing. showHome()
+                // also resets the selected chip to "All".
                 if (s.isNullOrBlank() && !showingHomeFeed && cachedFeedItems.isNotEmpty()) {
-                    showHomeFeed(cachedFeedItems)
+                    showHome()
                 }
             }
         })
@@ -232,6 +285,8 @@ class MainActivity : AppCompatActivity() {
 
         downloadButton.setOnClickListener { doDownload() }
 
+        setupLandingPage()
+
         observeStates()
         ensureLegacyStoragePermission()
         statusText.text = getString(R.string.status_idle)
@@ -242,16 +297,23 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Fetches the home feed once, on launch. On success the videos show
-     * in the results list under the "Suggested videos" header. On any
-     * failure (or an empty feed) the home falls back to the idle text —
-     * never an error state, never blocking search.
+     * Fetches the home feed once, on launch: videos related to the user's
+     * own recent searches when there is any history, otherwise the live
+     * kiosk feed as a fallback so the home is never empty. No header is
+     * shown on the home (user choice) — the videos just appear under the
+     * search bar. On any failure (or an empty feed) the home falls back
+     * to the idle text — never an error state, never blocking search.
      */
     private fun loadHomeFeed() {
         lifecycleScope.launch {
             loadingBar.visibility = View.VISIBLE
             statusText.text = getString(R.string.status_loading)
-            val items = repository.loadHomeFeed()
+            val history = searchHistory.load()
+            val items = if (history.isEmpty()) {
+                repository.loadHomeFeed()
+            } else {
+                repository.loadPersonalizedFeed(history)
+            }
             // Remember the feed even if it arrives too late to show: the
             // user may still clear the field later and restore it.
             if (items.isNotEmpty()) cachedFeedItems = items
@@ -273,9 +335,267 @@ class MainActivity : AppCompatActivity() {
     private fun showHomeFeed(items: List<VideoItem>) {
         cachedFeedItems = items
         showingHomeFeed = true
-        feedHeader.visibility = View.VISIBLE
         resultsAdapter.submit(items)
         statusText.text = ""
+    }
+
+    // ---- Landing page (v1.4.0, VidMate-style) ----
+
+    /**
+     * Wires the chips, the quick-access shortcuts, the download popup
+     * and the bottom navigation. Called once from onCreate. "All" starts
+     * selected and HOME starts as the active tab.
+     */
+    private fun setupLandingPage() {
+        chipAll = findViewById(R.id.chipAll)
+        chipShorts = findViewById(R.id.chipShorts)
+        chipMusic = findViewById(R.id.chipMusic)
+        chipAction = findViewById(R.id.chipAction)
+        chipAll.setOnClickListener { showHome() }
+        chipShorts.setOnClickListener { loadCategory(QUERY_SHORTS, chipShorts) }
+        chipMusic.setOnClickListener { loadCategory(QUERY_MUSIC, chipMusic) }
+        chipAction.setOnClickListener { loadCategory(QUERY_ACTION, chipAction) }
+        selectChip(chipAll)
+
+        findViewById<View>(R.id.shortcutYouTube).setOnClickListener {
+            openAppOrWeb("com.google.android.youtube", "https://www.youtube.com")
+        }
+        findViewById<View>(R.id.shortcutWhatsApp).setOnClickListener {
+            openWhatsApp()
+        }
+        findViewById<View>(R.id.shortcutFacebook).setOnClickListener {
+            openAppOrWeb("com.facebook.katana", "https://www.facebook.com")
+        }
+        findViewById<View>(R.id.shortcutInstagram).setOnClickListener {
+            openAppOrWeb("com.instagram.android", "https://www.instagram.com")
+        }
+        findViewById<View>(R.id.shortcutSites).setOnClickListener {
+            showSitesDialog()
+        }
+
+        downloadPopup = findViewById(R.id.downloadPopup)
+        downloadPopupTitle = findViewById(R.id.downloadPopupTitle)
+        downloadPopupButton = findViewById(R.id.downloadPopupButton)
+        downloadPopupDismiss = findViewById(R.id.downloadPopupDismiss)
+        downloadPopupButton.setOnClickListener {
+            doDownload()
+            hideDownloadPopup()
+        }
+        downloadPopupDismiss.setOnClickListener { hideDownloadPopup() }
+
+        bottomTabLabels = listOf(
+            findViewById(R.id.bottomHomeLabel),
+            findViewById(R.id.bottomShortsLabel),
+            findViewById(R.id.bottomGameLabel),
+            findViewById(R.id.bottomFilesLabel),
+            findViewById(R.id.bottomMeLabel)
+        )
+        bottomTabIcons = listOf(
+            findViewById(R.id.bottomHomeIcon),
+            findViewById(R.id.bottomShortsIcon),
+            findViewById(R.id.bottomGameIcon),
+            findViewById(R.id.bottomFilesIcon),
+            findViewById(R.id.bottomMeIcon)
+        )
+        findViewById<View>(R.id.bottomHome).setOnClickListener {
+            selectBottomTab(TAB_HOME)
+            showHome()
+        }
+        findViewById<View>(R.id.bottomShorts).setOnClickListener {
+            selectBottomTab(TAB_SHORTS)
+            loadCategory(QUERY_SHORTS, chipShorts)
+        }
+        findViewById<View>(R.id.bottomGame).setOnClickListener {
+            selectBottomTab(TAB_GAME)
+            loadCategory(QUERY_GAMING, null)
+        }
+        findViewById<View>(R.id.bottomFiles).setOnClickListener {
+            selectBottomTab(TAB_FILES)
+            openDownloadsFolder()
+        }
+        findViewById<View>(R.id.bottomMe).setOnClickListener {
+            selectBottomTab(TAB_ME)
+            showMeDialog()
+        }
+        selectBottomTab(TAB_HOME)
+    }
+
+    /**
+     * Marks [chip] as the selected category (red pill, white text) and
+     * returns the others to the plain card style. Null clears the
+     * selection (used by GAME, which has no chip).
+     */
+    private fun selectChip(chip: TextView?) {
+        val allChips = listOf(chipAll, chipShorts, chipMusic, chipAction)
+        for (c in allChips) {
+            if (c == chip) {
+                c.setBackgroundResource(R.drawable.chip_selected)
+                c.setTextColor(ContextCompat.getColor(this, R.color.lt_surface))
+            } else {
+                c.setBackgroundResource(R.drawable.focus_border)
+                c.setTextColor(ContextCompat.getColor(this, R.color.lt_text_primary))
+            }
+        }
+    }
+
+    /**
+     * HOME (chip "All" or bottom nav): clear the search field and bring
+     * the cached home feed back, or reload it when there is none yet.
+     */
+    private fun showHome() {
+        suppressSuggestionRefresh = true
+        searchInput.setText("")
+        suppressSuggestionRefresh = false
+        hideSuggestions()
+        selectChip(chipAll)
+        if (cachedFeedItems.isNotEmpty()) {
+            showHomeFeed(cachedFeedItems)
+        } else {
+            loadHomeFeed()
+        }
+    }
+
+    /**
+     * A category feed (chip or bottom nav): show the query in the search
+     * field and run it as a plain search. Deliberately NOT saved to the
+     * search history — categories are navigation, not the user's own
+     * searches. On failure the state observer shows the generic error
+     * and the previous list stays as it was.
+     */
+    private fun loadCategory(query: String, chip: TextView?) {
+        selectChip(chip)
+        suppressSuggestionRefresh = true
+        searchInput.setText(query)
+        searchInput.setSelection(query.length)
+        suppressSuggestionRefresh = false
+        hideSuggestions()
+        lifecycleScope.launch { repository.search(query) }
+    }
+
+    /**
+     * Opens [webUrl] inside the app [packageName] when it is installed
+     * (YouTube / Facebook / Instagram handle their own URLs), otherwise
+     * in the browser. Nothing installed at all (no browser either):
+     * the generic error status, never a crash.
+     */
+    private fun openAppOrWeb(packageName: String, webUrl: String) {
+        val appIntent = Intent(Intent.ACTION_VIEW, Uri.parse(webUrl))
+            .setPackage(packageName)
+        try {
+            startActivity(appIntent)
+        } catch (e: ActivityNotFoundException) {
+            openWeb(webUrl)
+        }
+    }
+
+    /**
+     * WhatsApp has no web URL that opens the app itself, so open the app
+     * directly when installed; otherwise fall back to its website.
+     */
+    private fun openWhatsApp() {
+        val launch = packageManager.getLaunchIntentForPackage("com.whatsapp")
+        if (launch != null) {
+            try {
+                startActivity(launch)
+                return
+            } catch (e: ActivityNotFoundException) {
+                // Fall through to the website below.
+            }
+        }
+        openWeb("https://www.whatsapp.com")
+    }
+
+    /** Plain browser open, with the same never-crash fallback. */
+    private fun openWeb(url: String) {
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+        } catch (e: ActivityNotFoundException) {
+            statusText.text = getString(R.string.status_error)
+        }
+    }
+
+    /** "Sites" shortcut: a few more sites in a simple D-Pad list. */
+    private fun showSitesDialog() {
+        val sites = arrayOf("Google", "TikTok", "Dailymotion", "Vimeo")
+        val urls = arrayOf(
+            "https://www.google.com",
+            "https://www.tiktok.com",
+            "https://www.dailymotion.com",
+            "https://vimeo.com"
+        )
+        AlertDialog.Builder(this)
+            .setTitle(R.string.sites_title)
+            .setItems(sites) { _, which -> openWeb(urls[which]) }
+            .setNegativeButton(R.string.me_close, null)
+            .show()
+    }
+
+    /**
+     * ME tab: app name, version and two actions — check for updates
+     * (the existing UpdateManager, manual check) and the website.
+     * A dialog, not a new Activity.
+     */
+    private fun showMeDialog() {
+        val version = getString(
+            R.string.me_version_format,
+            BuildConfig.VERSION_NAME,
+            BuildConfig.VERSION_CODE
+        )
+        AlertDialog.Builder(this)
+            .setTitle(R.string.app_name)
+            .setMessage(version)
+            .setPositiveButton(R.string.me_check_updates) { _, _ ->
+                (application as LiteTubeApp).updateManager.checkNow()
+                statusText.text = getString(R.string.me_checking)
+            }
+            .setNegativeButton(R.string.me_visit_site) { _, _ ->
+                openWeb("https://littletube.vercel.app")
+            }
+            .setNeutralButton(R.string.me_close, null)
+            .show()
+    }
+
+    /**
+     * MY FILES: open the system's Downloads folder, where the Gallery
+     * downloads land. DownloadManager.ACTION_VIEW_DOWNLOADS is the
+     * standard entry point; on a device with no Downloads UI (rare,
+     * some TV boxes) the status line says so instead of crashing.
+     */
+    private fun openDownloadsFolder() {
+        try {
+            startActivity(Intent(DownloadManager.ACTION_VIEW_DOWNLOADS))
+        } catch (e: ActivityNotFoundException) {
+            statusText.text = getString(R.string.status_no_file_manager)
+        }
+    }
+
+    /** Highlights bottom tab [index] (red icon + label) and greys the rest. */
+    private fun selectBottomTab(index: Int) {
+        val selectedColor = ContextCompat.getColor(this, R.color.lt_red)
+        val idleColor = ContextCompat.getColor(this, R.color.lt_text_secondary)
+        for (i in bottomTabLabels.indices) {
+            val active = i == index
+            bottomTabLabels[i].setTextColor(if (active) selectedColor else idleColor)
+            bottomTabIcons[i].imageTintList =
+                ColorStateList.valueOf(if (active) selectedColor else idleColor)
+        }
+    }
+
+    // ---- Download popup (v1.4.0) ----
+
+    /**
+     * Shows the download card below the player when a video starts
+     * playing, with the video's title. The Download button runs the same
+     * flow as the player's Download button; × hides the card until the
+     * next video starts.
+     */
+    private fun showDownloadPopup(title: String) {
+        downloadPopupTitle.text = title
+        downloadPopup.visibility = View.VISIBLE
+    }
+
+    private fun hideDownloadPopup() {
+        downloadPopup.visibility = View.GONE
     }
 
     private fun observeStates() {
@@ -288,18 +608,19 @@ class MainActivity : AppCompatActivity() {
                     is VideoState.Loading -> {
                         loadingBar.visibility = View.VISIBLE
                         statusText.text = getString(R.string.status_loading)
+                        hideDownloadPopup()
                     }
                     is VideoState.Results -> {
                         loadingBar.visibility = View.GONE
+                        hideDownloadPopup()
                         resultsAdapter.submit(state.items)
                         statusText.text = if (state.items.isEmpty()) {
                             getString(R.string.status_no_results)
                         } else {
                             getString(R.string.status_results_count, state.items.size)
                         }
-                        // A search replaces the home feed: hide its header.
+                        // A search replaces the home feed.
                         showingHomeFeed = false
-                        feedHeader.visibility = View.GONE
                         // A fresh search makes the previous video's related
                         // list stale: hide it until a video loads again.
                         relatedAdapter.submit(emptyList())
@@ -314,6 +635,10 @@ class MainActivity : AppCompatActivity() {
                         downloadButton.isEnabled = true
                         statusText.text = ""
                         hideSuggestions()
+                        // First video: reveal the player (GONE on the
+                        // landing page) and the download popup below it.
+                        playerView.visibility = View.VISIBLE
+                        showDownloadPopup(state.streams.title)
                         if (state.streams.relatedItems.isEmpty()) {
                             relatedHeader.visibility = View.GONE
                             relatedList.visibility = View.GONE
@@ -326,6 +651,7 @@ class MainActivity : AppCompatActivity() {
                     }
                     is VideoState.Error -> {
                         loadingBar.visibility = View.GONE
+                        hideDownloadPopup()
                         statusText.text = getString(R.string.status_error)
                     }
                 }

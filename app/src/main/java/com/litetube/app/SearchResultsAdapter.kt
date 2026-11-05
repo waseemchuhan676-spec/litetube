@@ -5,6 +5,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageButton
+import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 
@@ -34,10 +35,17 @@ fun formatDuration(totalSeconds: Long): String {
  * resolve its parent row by id — findViewById only searches downwards).
  * UP/DOWN from the button fall through to the list's normal geometric
  * row-to-row movement.
+ *
+ * Thumbnails (v1.4.0): each row shows the video's small thumbnail on the
+ * left, loaded by the shared [thumbnailLoader] (one 4 MB cache for both
+ * lists). The loader tags the ImageView with the URL, so a recycled row
+ * never shows a stale image; an empty/failed thumbnail leaves the
+ * light-grey placeholder background visible.
  */
 class SearchResultsAdapter(
     private val onItemClick: (VideoItem) -> Unit,
-    private val onMenuClick: (VideoItem, View) -> Unit
+    private val onMenuClick: (VideoItem, View) -> Unit,
+    private val thumbnailLoader: ThumbnailLoader
 ) : RecyclerView.Adapter<SearchResultsAdapter.ResultViewHolder>() {
 
     private var items: List<VideoItem> = emptyList()
@@ -48,6 +56,7 @@ class SearchResultsAdapter(
     }
 
     class ResultViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+        val thumbnail: ImageView = view.findViewById(R.id.resultThumbnail)
         val title: TextView = view.findViewById(R.id.resultTitle)
         val meta: TextView = view.findViewById(R.id.resultMeta)
         val menuButton: ImageButton = view.findViewById(R.id.rowMenuButton)
@@ -61,6 +70,7 @@ class SearchResultsAdapter(
 
     override fun onBindViewHolder(holder: ResultViewHolder, position: Int) {
         val item = items[position]
+        thumbnailLoader.load(item.thumbnailUrl, holder.thumbnail)
         holder.title.text = item.title
         val duration = formatDuration(item.durationSeconds)
         holder.meta.text = if (duration.isEmpty()) {
