@@ -11,8 +11,8 @@ android {
         applicationId = "com.litetube.app"
         minSdk = 21
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -91,7 +91,7 @@ dependencies {
     // NewPipeExtractor: client-side stream resolution, no proxy, no server.
     // Pinned to a verified JitPack release; bump this one line when YouTube
     // changes break extraction (that is the only maintenance this app needs).
-    implementation("com.github.TeamNewPipe:NewPipeExtractor:v0.26.0")
+    implementation("com.github.TeamNewPipe:NewPipeExtractor:v0.26.5")
 
     // Desugaring runtime for minSdk 21 (see compileOptions note above).
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs_nio:2.0.4")
