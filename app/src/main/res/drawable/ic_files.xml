@@ -1,0 +1,10 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Bottom nav MY FILES: down arrow into a tray (Downloads). -->
+    <path
+        android:fillColor="#1A1A1A"
+        android:pathData="M11,3h2v8h3l-4,5 -4,-5h3zM4,17h16v3H4z" />
+</vector>
