@@ -1,11 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
-    <!-- "Sites" shortcut icon: a 2x2 grid of rounded squares, like the
-         app-drawer grid in the VidMate screenshot. -->
+    <!-- "Sites" shortcut icon (v1.6.0 redraw): a 2x2 grid of small
+         COLOURFUL rounded squares, like the mini app icons in the
+         VidMate reference's Sites icon (red / green / blue / orange).
+         Four flat paths, API 21+ safe. -->
     <path
-        android:fillColor="#1A1A1A"
-        android:pathData="M4,3h6a1,1 0 0,1 1,1v6a1,1 0 0,1 -1,1H4a1,1 0 0,1 -1,-1V4a1,1 0 0,1 1,-1zM13,3h6a1,1 0 0,1 1,1v6a1,1 0 0,1 -1,1h-6a1,1 0 0,1 -1,-1V4a1,1 0 0,1 1,-1zM4,13h6a1,1 0 0,1 1,1v6a1,1 0 0,1 -1,1H4a1,1 0 0,1 -1,-1v-6a1,1 0 0,1 1,-1zM13,13h6a1,1 0 0,1 1,1v6a1,1 0 0,1 -1,1h-6a1,1 0 0,1 -1,-1v-6a1,1 0 0,1 1,-1z" />
+        android:fillColor="#FF0000"
+        android:pathData="M4,3h6a1,1 0 0,1 1,1v6a1,1 0 0,1 -1,1H4a1,1 0 0,1 -1,-1V4a1,1 0 0,1 1,-1z" />
+    <path
+        android:fillColor="#25D366"
+        android:pathData="M13,3h6a1,1 0 0,1 1,1v6a1,1 0 0,1 -1,1h-6a1,1 0 0,1 -1,-1V4a1,1 0 0,1 1,-1z" />
+    <path
+        android:fillColor="#1877F2"
+        android:pathData="M4,13h6a1,1 0 0,1 1,1v6a1,1 0 0,1 -1,1H4a1,1 0 0,1 -1,-1v-6a1,1 0 0,1 1,-1z" />
+    <path
+        android:fillColor="#FF9800"
+        android:pathData="M13,13h6a1,1 0 0,1 1,1v6a1,1 0 0,1 -1,1h-6a1,1 0 0,1 -1,-1v-6a1,1 0 0,1 1,-1z" />
 </vector>

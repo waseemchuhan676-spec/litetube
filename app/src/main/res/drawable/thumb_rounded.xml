@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Rounded top corners for the video card thumbnail (v1.6.0): the
+     thumbnail sits flush at the top of the white card, so only its top
+     corners are rounded (12dp, matching the card). Used as the
+     ImageView's background together with clipToOutline="true", which
+     clips the loaded bitmap to this rounded outline (API 21+). -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#E0E0E0" />
+    <corners
+        android:topLeftRadius="12dp"
+        android:topRightRadius="12dp"
+        android:bottomLeftRadius="0dp"
+        android:bottomRightRadius="0dp" />
+</shape>

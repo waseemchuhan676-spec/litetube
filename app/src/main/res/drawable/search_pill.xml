@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Search pill (v1.6.0, VidMate reference): a wide rounded pill, light
+     grey by default, NO red border anywhere. Used as the search field's
+     own background (with the magnifier as its drawableStart), so the
+     focused state follows the field automatically. Focused: white fill
+     with a 2dp grey border — visible, but never red. -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_focused="true">
+        <shape android:shape="rectangle">
+            <solid android:color="@color/lt_surface" />
+            <stroke
+                android:width="2dp"
+                android:color="@color/lt_text_hint" />
+            <corners android:radius="24dp" />
+        </shape>
+    </item>
+    <item android:state_pressed="true">
+        <shape android:shape="rectangle">
+            <solid android:color="#E8E8E8" />
+            <corners android:radius="24dp" />
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@color/lt_pill_grey" />
+            <corners android:radius="24dp" />
+        </shape>
+    </item>
+</selector>

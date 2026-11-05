@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Search magnifier (v1.6.0): dark-grey circle + handle, used as the
+         search field's drawableStart inside the grey pill. Plain stroke
+         paths only, no fill-rule tricks (API 21+ safe). -->
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M10.5,4a6.5,6.5 0 1,0 0,13a6.5,6.5 0 1,0 0,-13z"
+        android:strokeWidth="2.2"
+        android:strokeColor="#1A1A1A" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M15.3,15.3L20.5,20.5"
+        android:strokeWidth="2.2"
+        android:strokeColor="#1A1A1A"
+        android:strokeLineCap="round" />
+</vector>

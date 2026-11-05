@@ -1,23 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Selected category chip (v1.4.0): solid brand-red pill. The focused
-     state adds a darker red border so a D-Pad user can still see which
-     chip has focus when it is already the selected one. Unselected chips
-     use @drawable/focus_border (white card + grey border, red on focus);
-     the background is swapped in code when the selection changes. -->
+<!-- Selected category chip (v1.6.0, VidMate reference): solid BLACK pill
+     with white text (set in code). The focused state adds a grey border
+     so a D-Pad user can still see which chip has focus when it is
+     already the selected one. Unselected chips use
+     @drawable/chip_unselected (white + grey border). The background is
+     swapped in code when the selection changes. -->
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:state_focused="true">
         <shape android:shape="rectangle">
-            <solid android:color="@color/lt_red" />
+            <solid android:color="@color/lt_text_primary" />
             <stroke
-                android:width="3dp"
-                android:color="@color/lt_red_dark" />
-            <corners android:radius="16dp" />
+                android:width="2dp"
+                android:color="@color/lt_text_hint" />
+            <corners android:radius="20dp" />
         </shape>
     </item>
     <item>
         <shape android:shape="rectangle">
-            <solid android:color="@color/lt_red" />
-            <corners android:radius="16dp" />
+            <solid android:color="@color/lt_text_primary" />
+            <corners android:radius="20dp" />
         </shape>
     </item>
 </selector>

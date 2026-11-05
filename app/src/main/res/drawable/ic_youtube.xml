@@ -1,14 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
-    <!-- YouTube shortcut icon: brand-red rounded rect + white play
-         triangle, same 24dp format as ic_mic.xml / ic_more_vert.xml. -->
+    <!-- YouTube shortcut icon (v1.6.0 redraw): brand-red rounded rect
+         with a larger white play triangle, closer to the real mark. The
+         rect uses a 4dp corner radius (the real logo's soft corners) and
+         the triangle is centred with a small left offset, as in the
+         brand mark. Two flat paths, API 21+ safe. -->
     <path
         android:fillColor="#FF0000"
-        android:pathData="M6,4h12a2,2 0 0,1 2,2v12a2,2 0 0,1 -2,2H6a2,2 0 0,1 -2,-2V6a2,2 0 0,1 2,-2z" />
+        android:pathData="M6.5,5h11a4,4 0 0,1 4,4v6a4,4 0 0,1 -4,4h-11a4,4 0 0,1 -4,-4V9a4,4 0 0,1 4,-4z" />
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M10,8.5v7l6,-3.5z" />
+        android:pathData="M10,8.2v7.6l6.2,-3.8z" />
 </vector>

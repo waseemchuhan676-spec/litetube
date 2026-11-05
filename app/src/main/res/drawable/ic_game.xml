@@ -1,16 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
-    <!-- Bottom nav GAME: gamepad body + white d-pad cross and buttons. -->
+    <!-- Bottom nav GAME (v1.6.0 redraw): a SINGLE-COLOUR gamepad
+         silhouette. The old icon had white d-pad/buttons cut out of the
+         body, but the tab tints the whole icon at runtime (red when
+         selected, grey otherwise) — the tint turned the white details
+         into a solid blob. One flat path now, so the tint reads as a
+         clean gamepad in any colour. -->
     <path
         android:fillColor="#1A1A1A"
         android:pathData="M8,6h8a5,5 0 0,1 5,5v1.5a3,3 0 0,1 -5.5,1.7L14,12.5h-5l-1.5,1.7A3,3 0 0,1 3,12.5V11a5,5 0 0,1 5,-5z" />
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M8.2,9.8h1.6v4.4H8.2zM7,11h4v1.6H7z" />
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M14.6,10.8a0.9,0.9 0 1,0 1.8,0a0.9,0.9 0 1,0 -1.8,0zM16.9,12.5a0.9,0.9 0 1,0 1.8,0a0.9,0.9 0 1,0 -1.8,0z" />
 </vector>
