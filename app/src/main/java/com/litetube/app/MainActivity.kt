@@ -16,6 +16,7 @@ import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageButton
+import android.widget.PopupMenu
 import android.widget.ProgressBar
 import android.widget.Spinner
 import android.widget.TextView
@@ -47,6 +48,15 @@ import java.util.Locale
  * without the Google app), and the mic permission is asked only when the
  * button is tapped, never at app start.
  *
+ * Home feed (v1.3.0): on launch the app shows YouTube's suggested videos
+ * (the default kiosk feed) in the results list under a "Suggested videos"
+ * header, YouTube/VidMate-style, so the home is not empty. A search
+ * replaces the feed; clearing the field restores the cached feed.
+ * Tapping any video auto-plays it (playBestStream runs on every load).
+ * Every video row has a ⋮ button opening a Download-only menu that
+ * downloads that video to the Gallery via the same path as the player's
+ * Download button.
+ *
  * Update checks live in LiteTubeApp (Application scope), not here. This
  * activity only calls installPendingUpdate() on resume: after the user
  * returns from the "Install unknown apps" settings screen, the
@@ -65,6 +75,11 @@ class MainActivity : AppCompatActivity() {
 
     private var currentStreams: StreamSet? = null
     private var suggestionJob: Job? = null
+    /** True while the results list shows the home feed (not search results). */
+    private var showingHomeFeed = false
+    /** Last successfully loaded feed, so clearing the search field can
+     *  restore the home feed without another network call. */
+    private var cachedFeedItems: List<VideoItem> = emptyList()
     /** True while the code itself sets the search text (picking a
      *  suggestion): the TextWatcher must not re-fire a suggestion fetch. */
     private var suppressSuggestionRefresh = false
@@ -76,6 +91,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var voiceButton: ImageButton
     private lateinit var statusText: TextView
     private lateinit var loadingBar: ProgressBar
+    private lateinit var feedHeader: TextView
     private lateinit var videoTitle: TextView
     private lateinit var videoMeta: TextView
     private lateinit var qualitySpinner: Spinner
@@ -90,6 +106,8 @@ class MainActivity : AppCompatActivity() {
     companion object {
         private const val LEGACY_STORAGE_REQUEST = 1001
         private const val VOICE_REQUEST = 1002
+        /** Menu item id for the row ⋮ menu's only entry, Download. */
+        private const val MENU_DOWNLOAD_ID = 1
         private val VIDEO_ID_REGEX = Regex("^[A-Za-z0-9_-]{11}$")
         /** Wait after the last keystroke before asking YouTube for
          *  suggestions, so one request per pause instead of per letter. */
@@ -111,6 +129,7 @@ class MainActivity : AppCompatActivity() {
         searchInput = findViewById(R.id.searchInput)
         statusText = findViewById(R.id.statusText)
         loadingBar = findViewById(R.id.loadingBar)
+        feedHeader = findViewById(R.id.feedHeader)
         videoTitle = findViewById(R.id.videoTitle)
         videoMeta = findViewById(R.id.videoMeta)
         qualitySpinner = findViewById(R.id.qualitySpinner)
@@ -118,9 +137,12 @@ class MainActivity : AppCompatActivity() {
 
         val resultsList = findViewById<RecyclerView>(R.id.resultsList)
         resultsList.layoutManager = LinearLayoutManager(this)
-        resultsAdapter = SearchResultsAdapter { item ->
-            lifecycleScope.launch { repository.loadStream(item.url) }
-        }
+        resultsAdapter = SearchResultsAdapter(
+            onItemClick = { item ->
+                lifecycleScope.launch { repository.loadStream(item.url) }
+            },
+            onMenuClick = { item, anchor -> showRowMenu(item, anchor) }
+        )
         resultsList.adapter = resultsAdapter
 
         suggestionsHeaderRow = findViewById(R.id.suggestionsHeaderRow)
@@ -134,9 +156,12 @@ class MainActivity : AppCompatActivity() {
         relatedHeader = findViewById(R.id.relatedHeader)
         relatedList = findViewById(R.id.relatedList)
         relatedList.layoutManager = LinearLayoutManager(this)
-        relatedAdapter = SearchResultsAdapter { item ->
-            lifecycleScope.launch { repository.loadStream(item.url) }
-        }
+        relatedAdapter = SearchResultsAdapter(
+            onItemClick = { item ->
+                lifecycleScope.launch { repository.loadStream(item.url) }
+            },
+            onMenuClick = { item, anchor -> showRowMenu(item, anchor) }
+        )
         relatedList.adapter = relatedAdapter
 
         clearHistory.setOnClickListener {
@@ -150,6 +175,12 @@ class MainActivity : AppCompatActivity() {
             override fun afterTextChanged(s: Editable?) {
                 if (suppressSuggestionRefresh) return
                 refreshSuggestions()
+                // Field cleared back to empty: bring the home feed back
+                // from the cache (no network call). If the feed never
+                // loaded, leave whatever results are showing.
+                if (s.isNullOrBlank() && !showingHomeFeed && cachedFeedItems.isNotEmpty()) {
+                    showHomeFeed(cachedFeedItems)
+                }
             }
         })
         searchInput.setOnFocusChangeListener { _, hasFocus ->
@@ -206,6 +237,45 @@ class MainActivity : AppCompatActivity() {
         statusText.text = getString(R.string.status_idle)
         // TV first focus: the remote starts on the search field.
         searchInput.requestFocus()
+        // Home feed: suggested videos on launch, YouTube/VidMate-style.
+        loadHomeFeed()
+    }
+
+    /**
+     * Fetches the home feed once, on launch. On success the videos show
+     * in the results list under the "Suggested videos" header. On any
+     * failure (or an empty feed) the home falls back to the idle text —
+     * never an error state, never blocking search.
+     */
+    private fun loadHomeFeed() {
+        lifecycleScope.launch {
+            loadingBar.visibility = View.VISIBLE
+            statusText.text = getString(R.string.status_loading)
+            val items = repository.loadHomeFeed()
+            // Remember the feed even if it arrives too late to show: the
+            // user may still clear the field later and restore it.
+            if (items.isNotEmpty()) cachedFeedItems = items
+            // The user may have searched (or loaded a video) while the
+            // feed was loading: never let the late feed overwrite search
+            // results or a loaded video — only show it on a still-empty home.
+            if (searchInput.text.isNullOrBlank()) {
+                loadingBar.visibility = View.GONE
+                if (items.isEmpty()) {
+                    statusText.text = getString(R.string.status_idle)
+                } else {
+                    showHomeFeed(items)
+                }
+            }
+        }
+    }
+
+    /** Shows [items] as the home feed and remembers them for restore. */
+    private fun showHomeFeed(items: List<VideoItem>) {
+        cachedFeedItems = items
+        showingHomeFeed = true
+        feedHeader.visibility = View.VISIBLE
+        resultsAdapter.submit(items)
+        statusText.text = ""
     }
 
     private fun observeStates() {
@@ -227,6 +297,9 @@ class MainActivity : AppCompatActivity() {
                         } else {
                             getString(R.string.status_results_count, state.items.size)
                         }
+                        // A search replaces the home feed: hide its header.
+                        showingHomeFeed = false
+                        feedHeader.visibility = View.GONE
                         // A fresh search makes the previous video's related
                         // list stale: hide it until a video loads again.
                         relatedAdapter.submit(emptyList())
@@ -491,6 +564,16 @@ class MainActivity : AppCompatActivity() {
 
     private fun doDownload() {
         val streams = currentStreams ?: return
+        downloadStreams(streams)
+    }
+
+    /**
+     * The one download path, shared by the player's Download button and by
+     * a row's ⋮ menu: legacy-storage permission first, then the quality
+     * the spinner currently shows, then the Gallery download. Status
+     * messages come from the downloader's state observer.
+     */
+    private fun downloadStreams(streams: StreamSet) {
         if (!hasLegacyStoragePermission()) {
             requestLegacyStoragePermission()
             statusText.text = getString(R.string.status_error)
@@ -530,6 +613,39 @@ class MainActivity : AppCompatActivity() {
                 )
             }
         }
+    }
+
+    /**
+     * Row ⋮ menu -> Download: the list item has no resolved streams yet,
+     * so resolve them first (one network call, no playback and no state
+     * change — resolveStream never touches the shared state flow), then
+     * download through the same path as the player's Download button.
+     */
+    private fun downloadRowVideo(item: VideoItem) {
+        lifecycleScope.launch {
+            statusText.text = getString(R.string.status_loading)
+            val streams = repository.resolveStream(item.url)
+            if (streams == null) {
+                statusText.text = getString(R.string.status_error)
+                return@launch
+            }
+            downloadStreams(streams)
+        }
+    }
+
+    /** Row ⋮ menu (VidMate-style): Download only, nothing else. */
+    private fun showRowMenu(item: VideoItem, anchor: View) {
+        val popup = PopupMenu(this, anchor)
+        popup.menu.add(0, MENU_DOWNLOAD_ID, 0, getString(R.string.download))
+        popup.setOnMenuItemClickListener { menuItem ->
+            if (menuItem.itemId == MENU_DOWNLOAD_ID) {
+                downloadRowVideo(item)
+                true
+            } else {
+                false
+            }
+        }
+        popup.show()
     }
 
     /**

@@ -113,6 +113,78 @@ class YoutubeRepository {
     }
 
     /**
+     * Home feed (v1.3.0): YouTube's suggested videos for the app's home
+     * screen, so the main page is not empty like VidMate/YouTube.
+     *
+     * API (NewPipeExtractor v0.26.5, read from the extractor's own source
+     * at that tag): ServiceList.YouTube.getKioskList() returns a KioskList;
+     * KioskList.getDefaultKioskExtractor() returns the default kiosk's
+     * extractor (KioskExtractor extends ListExtractor, so fetchPage() and
+     * initialPage work exactly like the search extractor). NOTE — the
+     * default kiosk is NOT "Trending": YoutubeService.getKioskList()
+     * registers Trending as deprecated ("removed from the interface of
+     * YouTube since July 21, 2025") and calls
+     * setDefaultKiosk(YoutubeLiveLinkHandlerFactory.KIOSK_ID) — i.e. the
+     * default feed is the currently-live videos (KIOSK_ID = "live"). The
+     * old "Trending" kiosk is therefore NOT used; using the default keeps
+     * the feed working whatever YouTube's default kiosk is. There is no
+     * getKioskExtractorById() in v0.26.5 (the method is getExtractorById).
+     *
+     * Returns an empty list on any failure (no network, YouTube blocks
+     * it, empty kiosk): the caller falls back to the idle text, never
+     * an error state. Only the initial page is fetched — light enough
+     * for 1 GB TVs, and the list is capped like search results.
+     */
+    suspend fun loadHomeFeed(): List<VideoItem> {
+        return try {
+            withContext(Dispatchers.IO) {
+                val extractor = ServiceList.YouTube.getKioskList()
+                    .getDefaultKioskExtractor()
+                    ?: return@withContext emptyList()
+                extractor.fetchPage()
+                extractor.initialPage.items
+                    .filterIsInstance<StreamInfoItem>()
+                    .take(MAX_HOME_FEED_ITEMS)
+                    .map { item ->
+                        VideoItem(
+                            title = item.name,
+                            uploader = item.uploaderName,
+                            durationSeconds = item.duration,
+                            url = item.url
+                        )
+                    }
+            }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    /**
+     * Resolves a list item's page URL to its streams WITHOUT touching the
+     * shared state flow, so a row Download never starts playback or
+     * changes what the screen shows. Returns null when resolution fails.
+     * Only the streams are needed here (related items are left empty).
+     */
+    suspend fun resolveStream(pageUrl: String): StreamSet? {
+        return try {
+            val info = withContext(Dispatchers.IO) {
+                StreamInfo.getInfo(ServiceList.YouTube, pageUrl)
+            }
+            StreamSet(
+                title = info.name,
+                uploader = info.uploaderName,
+                durationSeconds = info.duration,
+                pageUrl = pageUrl,
+                dashMpdUrl = info.dashMpdUrl,
+                videoStreams = info.videoStreams,
+                audioStreams = info.audioStreams
+            )
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    /**
      * YouTube's autocomplete keywords for [query] — what other apps show
      * under the search bar while typing. Returns an empty list when the
      * service has no suggestion extractor or the request fails; callers
@@ -177,5 +249,7 @@ class YoutubeRepository {
         private const val MAX_SEARCH_PAGES = 4
         /** How many related videos to keep for one loaded video. */
         private const val MAX_RELATED_ITEMS = 20
+        /** How many videos the home feed shows (initial kiosk page only). */
+        private const val MAX_HOME_FEED_ITEMS = 20
     }
 }
