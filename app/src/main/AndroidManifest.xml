@@ -20,6 +20,15 @@
     <!-- Updater: lets the system installer open the downloaded APK. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
+    <!-- Voice search: RECORD_AUDIO is a dangerous permission, requested
+         only when the mic button is tapped (never at app start). The
+         microphone feature is optional, so the APK still installs on
+         devices without one (mic button is hidden there). -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-feature
+        android:name="android.hardware.microphone"
+        android:required="false" />
+
     <!-- Legacy storage only: Android 9 and below. Android 10+ uses the
          MediaStore API (scoped storage) and needs no storage permission. -->
     <uses-permission
