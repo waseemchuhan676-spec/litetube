@@ -145,8 +145,24 @@
         android:textColor="#8A9BA8"
         android:textSize="14sp" />
 
-    <!-- Search results. Each row is focusable; the list itself is the
-         D-Pad step between the search button and the quality spinner. -->
+    <!-- Home feed header ("Suggested videos"). GONE until the feed loads;
+         hidden again by any search. Not focusable, so D-Pad never lands
+         here; the results list below it is the focus step. -->
+    <TextView
+        android:id="@+id/feedHeader"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:focusable="false"
+        android:paddingTop="8dp"
+        android:text="@string/home_feed_header"
+        android:textColor="#FFFFFF"
+        android:textSize="15sp"
+        android:textStyle="bold"
+        android:visibility="gone" />
+
+    <!-- Search results (and, on launch, the home feed). Each row is
+         focusable; the list itself is the D-Pad step between the search
+         button and the quality spinner. -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/resultsList"
         android:layout_width="match_parent"
