@@ -13,6 +13,9 @@
     <string name="recent_searches_header">Recent searches</string>
     <string name="suggestions_header">Suggestions</string>
     <string name="clear_history">Clear</string>
+    <string name="voice_search">Voice search</string>
+    <string name="status_listening">Listening… speak now.</string>
+    <string name="status_voice_permission_denied">Microphone permission is needed for voice search.</string>
     <string name="status_error">Something went wrong. Check your connection and try again.</string>
     <string name="status_downloading">Downloading…</string>
     <string name="status_download_done">Saved to Gallery.</string>
