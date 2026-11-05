@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Settings gear (v1.5.0), hand-drawn: an 8-tooth ring (alternating
+  radii 10 / 7.5 around the 12,12 centre of a 24x24 viewport) with a
+  light centre hole. Two flat paths, no fill-rule and no rotation
+  groups, so it renders the same on every API level. The hole is
+  filled with the card colour (lt_surface): on the white card it
+  reads as a hole, and it stays white when the card is focused
+  (light-red fill). Verify visually on device.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="@color/lt_text_primary"
+        android:pathData="M22,12 L18.93,14.87 L19.07,19.07 L14.87,18.93 L12,22 L9.13,18.93 L4.93,19.07 L5.07,14.87 L2,12 L5.07,9.13 L4.93,4.93 L9.13,5.07 L12,2 L14.87,5.07 L19.07,4.93 L18.93,9.13 Z" />
+    <path
+        android:fillColor="@color/lt_surface"
+        android:pathData="M12,8.5 a3.5,3.5 0 1,0 0.1,0 Z" />
+</vector>
