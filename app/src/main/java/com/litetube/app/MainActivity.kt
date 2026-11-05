@@ -4,6 +4,8 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.widget.ArrayAdapter
@@ -19,6 +21,8 @@ import androidx.lifecycle.lifecycleScope
 import androidx.media3.ui.PlayerView
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 
@@ -26,6 +30,10 @@ import okhttp3.OkHttpClient
  * Orchestrates everything, in this order:
  * search input -> repository (NewPipeExtractor) -> PlayerManager for
  * playback -> GalleryDownloader for the Download button.
+ *
+ * Search extras (v1.1.0): while typing, YouTube suggestions merged with
+ * the user's own recent searches show under the search bar; after a video
+ * loads, its related videos show in a second list under the player.
  *
  * Update checks live in LiteTubeApp (Application scope), not here. This
  * activity only calls installPendingUpdate() on resume: after the user
@@ -39,8 +47,15 @@ class MainActivity : AppCompatActivity() {
     private lateinit var playerManager: PlayerManager
     private lateinit var downloader: GalleryDownloader
     private lateinit var resultsAdapter: SearchResultsAdapter
+    private lateinit var relatedAdapter: SearchResultsAdapter
+    private lateinit var suggestionsAdapter: SuggestionAdapter
+    private lateinit var searchHistory: SearchHistory
 
     private var currentStreams: StreamSet? = null
+    private var suggestionJob: Job? = null
+    /** True while the code itself sets the search text (picking a
+     *  suggestion): the TextWatcher must not re-fire a suggestion fetch. */
+    private var suppressSuggestionRefresh = false
 
     private lateinit var searchInput: EditText
     private lateinit var statusText: TextView
@@ -49,10 +64,21 @@ class MainActivity : AppCompatActivity() {
     private lateinit var videoMeta: TextView
     private lateinit var qualitySpinner: Spinner
     private lateinit var downloadButton: Button
+    private lateinit var suggestionsHeaderRow: View
+    private lateinit var suggestionsHeader: TextView
+    private lateinit var clearHistory: TextView
+    private lateinit var suggestionsList: RecyclerView
+    private lateinit var relatedHeader: TextView
+    private lateinit var relatedList: RecyclerView
 
     companion object {
         private const val LEGACY_STORAGE_REQUEST = 1001
         private val VIDEO_ID_REGEX = Regex("^[A-Za-z0-9_-]{11}$")
+        /** Wait after the last keystroke before asking YouTube for
+         *  suggestions, so one request per pause instead of per letter. */
+        private const val SUGGESTION_DEBOUNCE_MS = 300L
+        /** Most keyword rows shown under the search bar at once. */
+        private const val MAX_SUGGESTIONS = 8
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -63,6 +89,7 @@ class MainActivity : AppCompatActivity() {
         playerManager = PlayerManager(this, okHttpClient)
         playerManager.bind(findViewById(R.id.playerView))
         downloader = GalleryDownloader(this, okHttpClient)
+        searchHistory = SearchHistory(this)
 
         searchInput = findViewById(R.id.searchInput)
         statusText = findViewById(R.id.statusText)
@@ -78,6 +105,49 @@ class MainActivity : AppCompatActivity() {
             lifecycleScope.launch { repository.loadStream(item.url) }
         }
         resultsList.adapter = resultsAdapter
+
+        suggestionsHeaderRow = findViewById(R.id.suggestionsHeaderRow)
+        suggestionsHeader = findViewById(R.id.suggestionsHeader)
+        clearHistory = findViewById(R.id.clearHistory)
+        suggestionsList = findViewById(R.id.suggestionsList)
+        suggestionsList.layoutManager = LinearLayoutManager(this)
+        suggestionsAdapter = SuggestionAdapter { keyword -> pickSuggestion(keyword) }
+        suggestionsList.adapter = suggestionsAdapter
+
+        relatedHeader = findViewById(R.id.relatedHeader)
+        relatedList = findViewById(R.id.relatedList)
+        relatedList.layoutManager = LinearLayoutManager(this)
+        relatedAdapter = SearchResultsAdapter { item ->
+            lifecycleScope.launch { repository.loadStream(item.url) }
+        }
+        relatedList.adapter = relatedAdapter
+
+        clearHistory.setOnClickListener {
+            searchHistory.clear()
+            refreshSuggestions()
+        }
+
+        searchInput.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
+            override fun afterTextChanged(s: Editable?) {
+                if (suppressSuggestionRefresh) return
+                refreshSuggestions()
+            }
+        })
+        searchInput.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus) {
+                refreshSuggestions()
+            } else {
+                // Don't hide while the user moves focus into the suggestions
+                // themselves (D-Pad DOWN from the field): the list must stay
+                // up while its rows are being browsed.
+                val next = currentFocus
+                val browsingSuggestions = next === clearHistory ||
+                    next === suggestionsList || suggestionsList.findFocus() != null
+                if (!browsingSuggestions) hideSuggestions()
+            }
+        }
 
         val qualityLabels = listOf(
             getString(R.string.quality_1080),
@@ -129,8 +199,13 @@ class MainActivity : AppCompatActivity() {
                         statusText.text = if (state.items.isEmpty()) {
                             getString(R.string.status_no_results)
                         } else {
-                            ""
+                            getString(R.string.status_results_count, state.items.size)
                         }
+                        // A fresh search makes the previous video's related
+                        // list stale: hide it until a video loads again.
+                        relatedAdapter.submit(emptyList())
+                        relatedHeader.visibility = View.GONE
+                        relatedList.visibility = View.GONE
                     }
                     is VideoState.Ready -> {
                         loadingBar.visibility = View.GONE
@@ -139,6 +214,15 @@ class MainActivity : AppCompatActivity() {
                         videoMeta.text = state.streams.uploader
                         downloadButton.isEnabled = true
                         statusText.text = ""
+                        hideSuggestions()
+                        if (state.streams.relatedItems.isEmpty()) {
+                            relatedHeader.visibility = View.GONE
+                            relatedList.visibility = View.GONE
+                        } else {
+                            relatedAdapter.submit(state.streams.relatedItems)
+                            relatedHeader.visibility = View.VISIBLE
+                            relatedList.visibility = View.VISIBLE
+                        }
                         playBestStream(state.streams)
                     }
                     is VideoState.Error -> {
@@ -172,14 +256,86 @@ class MainActivity : AppCompatActivity() {
     private fun doSearch() {
         val input = searchInput.text.toString().trim()
         if (input.isEmpty()) return
+        hideSuggestions()
         val watchUrl = normalizeToWatchUrl(input)
         lifecycleScope.launch {
             if (watchUrl != null) {
                 repository.loadStream(watchUrl)
             } else {
+                // A real search term (not a link or video id): remember it
+                // for the recent-searches list under the search bar.
+                searchHistory.save(input)
                 repository.search(input)
             }
         }
+    }
+
+    /**
+     * Refresh what shows under the search bar, for the text that is there
+     * right now. Field focused and empty: the user's own recent searches.
+     * Typing: matching recent searches first, then YouTube's recommended
+     * keywords for what was typed (debounced, one request per pause).
+     */
+    private fun refreshSuggestions() {
+        val text = searchInput.text.toString().trim()
+        suggestionJob?.cancel()
+        if (text.isEmpty()) {
+            showSuggestions(
+                items = searchHistory.load(),
+                header = getString(R.string.recent_searches_header),
+                showClear = true
+            )
+            return
+        }
+        if (normalizeToWatchUrl(text) != null) {
+            // A link or video id gets no keyword suggestions.
+            hideSuggestions()
+            return
+        }
+        suggestionJob = lifecycleScope.launch {
+            delay(SUGGESTION_DEBOUNCE_MS)
+            val query = searchInput.text.toString().trim()
+            if (query.isEmpty() || query != text) return@launch
+            val remote = repository.suggestions(query)
+            val history = searchHistory.load()
+                .filter { it.startsWith(query, ignoreCase = true) }
+            val merged = (history + remote.filter { suggestion ->
+                history.none { it.equals(suggestion, ignoreCase = true) }
+            }).take(MAX_SUGGESTIONS)
+            showSuggestions(
+                items = merged,
+                header = getString(R.string.suggestions_header),
+                showClear = false
+            )
+        }
+    }
+
+    private fun showSuggestions(items: List<String>, header: String, showClear: Boolean) {
+        if (items.isEmpty()) {
+            hideSuggestions()
+            return
+        }
+        suggestionsHeader.text = header
+        clearHistory.visibility = if (showClear) View.VISIBLE else View.GONE
+        suggestionsHeaderRow.visibility = View.VISIBLE
+        suggestionsAdapter.submit(items)
+        suggestionsList.visibility = View.VISIBLE
+    }
+
+    private fun hideSuggestions() {
+        suggestionJob?.cancel()
+        suggestionsHeaderRow.visibility = View.GONE
+        suggestionsList.visibility = View.GONE
+    }
+
+    /** A suggestion (or recent search) was tapped: run that search. */
+    private fun pickSuggestion(keyword: String) {
+        suppressSuggestionRefresh = true
+        searchInput.setText(keyword)
+        searchInput.setSelection(keyword.length)
+        suppressSuggestionRefresh = false
+        hideSuggestions()
+        doSearch()
     }
 
     private fun doDownload() {
