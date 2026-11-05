@@ -1,13 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Dark theme: no action bar (the layout provides its own header row),
-         dark background so the TV screen stays dim in a living room. -->
+    <!-- Light professional theme (v1.4.0, VidMate-style): no action bar (the
+         layout provides its own header row), white/light-grey background,
+         near-black primary text, grey secondary text, brand-red accent.
+         The old dark theme (#0B0F14 background, white text) is gone. -->
     <style name="Theme.LiteTube" parent="Theme.AppCompat.NoActionBar">
-        <item name="android:windowBackground">#0B0F14</item>
-        <item name="android:textColorPrimary">#FFFFFF</item>
-        <item name="android:textColorSecondary">#8A9BA8</item>
-        <item name="colorPrimary">#1565C0</item>
-        <item name="colorPrimaryDark">#0B1F33</item>
-        <item name="colorAccent">#FFEB3B</item>
+        <item name="android:windowBackground">@color/lt_background</item>
+        <item name="android:textColorPrimary">@color/lt_text_primary</item>
+        <item name="android:textColorSecondary">@color/lt_text_secondary</item>
+        <item name="colorPrimary">@color/lt_red</item>
+        <item name="colorPrimaryDark">@color/lt_red_dark</item>
+        <item name="colorAccent">@color/lt_red</item>
     </style>
 </resources>

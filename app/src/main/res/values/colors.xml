@@ -1,4 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="ic_launcher_background">#FF0000</color>
+    <!-- VidMate-style light professional theme (v1.4.0). The red below is
+         the existing brand red (same #FF0000 as the launcher background). -->
+    <color name="lt_background">#F5F5F5</color>
+    <color name="lt_surface">#FFFFFF</color>
+    <color name="lt_text_primary">#1A1A1A</color>
+    <color name="lt_text_secondary">#616161</color>
+    <color name="lt_text_hint">#9E9E9E</color>
+    <color name="lt_red">#FF0000</color>
+    <color name="lt_red_dark">#CC0000</color>
+    <color name="lt_focus_fill">#FFF1F1</color>
+    <color name="lt_border">#DADADA</color>
 </resources>

@@ -16,7 +16,6 @@
     <string name="voice_search">Voice search</string>
     <string name="status_listening">Listening… speak now.</string>
     <string name="status_voice_permission_denied">Microphone permission is needed for voice search.</string>
-    <string name="home_feed_header">Suggested videos</string>
     <string name="download">Download</string>
     <string name="download_options">Download options</string>
     <string name="status_error">Something went wrong. Check your connection and try again.</string>
@@ -27,4 +26,33 @@
     <string name="quality_720">720p</string>
     <string name="quality_480">480p</string>
     <string name="quality_audio">Audio only</string>
+    <!-- Category chips (v1.4.0 landing page). -->
+    <string name="chip_all">All</string>
+    <string name="chip_shorts">Shorts</string>
+    <string name="chip_music">Music</string>
+    <string name="chip_action">Action Thrillers</string>
+    <!-- Quick-access shortcuts (v1.4.0 landing page). -->
+    <string name="shortcut_youtube">YouTube</string>
+    <string name="shortcut_whatsapp">WhatsApp</string>
+    <string name="shortcut_facebook">Facebook</string>
+    <string name="shortcut_instagram">Instagram</string>
+    <string name="shortcut_sites">Sites</string>
+    <string name="sites_title">More sites</string>
+    <!-- Download popup below the playing video (v1.4.0). -->
+    <string name="dismiss_popup">Dismiss</string>
+    <!-- Video thumbnail (v1.4.0). -->
+    <string name="thumbnail">Video thumbnail</string>
+    <!-- Bottom navigation (v1.4.0 landing page). -->
+    <string name="nav_home">HOME</string>
+    <string name="nav_shorts">SHORTS</string>
+    <string name="nav_game">GAME</string>
+    <string name="nav_my_files">MY FILES</string>
+    <string name="nav_me">ME</string>
+    <string name="status_no_file_manager">No file manager found on this device.</string>
+    <!-- ME panel (v1.4.0): version line + actions. -->
+    <string name="me_version_format">Version %1$s (build %2$d)</string>
+    <string name="me_check_updates">Check for updates</string>
+    <string name="me_visit_site">Visit website</string>
+    <string name="me_close">Close</string>
+    <string name="me_checking">Checking for updates…</string>
 </resources>
