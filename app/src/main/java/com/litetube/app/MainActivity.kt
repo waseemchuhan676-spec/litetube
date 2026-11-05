@@ -16,6 +16,7 @@ import android.text.Editable
 import android.text.TextWatcher
 import android.view.View
 import android.view.inputmethod.EditorInfo
+import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
@@ -77,6 +78,12 @@ import java.util.Locale
  * directly below the player with a Download button (same download flow)
  * and a × to dismiss it until the next video.
  *
+ * Settings (v1.5.0): the gear button opens SettingsActivity. The
+ * quality spinner defaults to the Settings default quality on every
+ * video load; the user can still override it per download. Every
+ * download runs through the Settings gate first (WiFi-only, size
+ * limits) — see downloadStreams().
+ *
  * Update checks live in LiteTubeApp (Application scope), not here. This
  * activity only calls installPendingUpdate() on resume: after the user
  * returns from the "Install unknown apps" settings screen, the
@@ -92,6 +99,15 @@ class MainActivity : AppCompatActivity() {
     private lateinit var relatedAdapter: SearchResultsAdapter
     private lateinit var suggestionsAdapter: SuggestionAdapter
     private lateinit var searchHistory: SearchHistory
+    /** User settings (v1.5.0): default quality, WiFi-only, size limits. */
+    private lateinit var settings: AppSettings
+    /** True once the user has picked a quality in the spinner for the
+     *  current video: the spinner then overrides the Settings default.
+     *  Reset on every video load (see applyDefaultQuality). */
+    private var spinnerTouchedByUser = false
+    /** True while the code sets the spinner position: the listener must
+     *  not treat the programmatic selection as a user override. */
+    private var suppressSpinnerCallback = false
 
     private var currentStreams: StreamSet? = null
     private var suggestionJob: Job? = null
@@ -174,6 +190,7 @@ class MainActivity : AppCompatActivity() {
         playerManager.bind(playerView)
         downloader = GalleryDownloader(this, okHttpClient)
         searchHistory = SearchHistory(this)
+        settings = AppSettings(this)
         // One shared thumbnail loader (one 4 MB cache) for both lists.
         thumbnailLoader = ThumbnailLoader(okHttpClient, lifecycleScope)
 
@@ -254,6 +271,7 @@ class MainActivity : AppCompatActivity() {
             getString(R.string.quality_1080),
             getString(R.string.quality_720),
             getString(R.string.quality_480),
+            getString(R.string.quality_360),
             getString(R.string.quality_audio)
         )
         qualitySpinner.adapter = ArrayAdapter(
@@ -263,8 +281,30 @@ class MainActivity : AppCompatActivity() {
         ).apply {
             setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         }
+        // A user tap on the spinner overrides the Settings default for
+        // this video (see effectiveDownloadQuality). Programmatic
+        // selections (applyDefaultQuality) are suppressed so they never
+        // count as an override. The listener is attached BEFORE the
+        // first programmatic selection, so the attach-time callback is
+        // suppressed too, and touched is reset right after.
+        qualitySpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(
+                parent: AdapterView<*>?,
+                view: View?,
+                position: Int,
+                id: Long
+            ) {
+                if (!suppressSpinnerCallback) spinnerTouchedByUser = true
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+        }
+        applyDefaultQuality()
 
         findViewById<Button>(R.id.searchButton).setOnClickListener { doSearch() }
+
+        // Settings (v1.5.0): gear button next to the search bar.
+        findViewById<ImageButton>(R.id.settingsButton).setOnClickListener { openSettings() }
 
         voiceButton = findViewById(R.id.voiceButton)
         voiceButton.setOnClickListener { onVoiceButtonClicked() }
@@ -531,9 +571,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * ME tab: app name, version and two actions — check for updates
-     * (the existing UpdateManager, manual check) and the website.
-     * A dialog, not a new Activity.
+     * ME tab: app name, version and three actions — Settings, check for
+     * updates (the existing UpdateManager, manual check) and the website.
+     * A list dialog, not a new Activity (Settings itself is one).
      */
     private fun showMeDialog() {
         val version = getString(
@@ -541,18 +581,31 @@ class MainActivity : AppCompatActivity() {
             BuildConfig.VERSION_NAME,
             BuildConfig.VERSION_CODE
         )
+        val items = arrayOf(
+            getString(R.string.me_settings),
+            getString(R.string.me_check_updates),
+            getString(R.string.me_visit_site)
+        )
         AlertDialog.Builder(this)
             .setTitle(R.string.app_name)
             .setMessage(version)
-            .setPositiveButton(R.string.me_check_updates) { _, _ ->
-                (application as LiteTubeApp).updateManager.checkNow()
-                statusText.text = getString(R.string.me_checking)
+            .setItems(items) { _, which ->
+                when (which) {
+                    0 -> openSettings()
+                    1 -> {
+                        (application as LiteTubeApp).updateManager.checkNow()
+                        statusText.text = getString(R.string.me_checking)
+                    }
+                    2 -> openWeb("https://littletube.vercel.app")
+                }
             }
-            .setNegativeButton(R.string.me_visit_site) { _, _ ->
-                openWeb("https://littletube.vercel.app")
-            }
-            .setNeutralButton(R.string.me_close, null)
+            .setNegativeButton(R.string.me_close, null)
             .show()
+    }
+
+    /** Opens the professional Settings screen (v1.5.0). */
+    private fun openSettings() {
+        startActivity(Intent(this, SettingsActivity::class.java))
     }
 
     /**
@@ -633,6 +686,10 @@ class MainActivity : AppCompatActivity() {
                         videoTitle.text = state.streams.title
                         videoMeta.text = state.streams.uploader
                         downloadButton.isEnabled = true
+                        // New video: the quality spinner goes back to the
+                        // Settings default (v1.5.0) — any override the user
+                        // made for the previous video does not carry over.
+                        applyDefaultQuality()
                         statusText.text = ""
                         hideSuggestions()
                         // First video: reveal the player (GONE on the
@@ -894,10 +951,59 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * The one download path, shared by the player's Download button and by
-     * a row's ⋮ menu: legacy-storage permission first, then the quality
-     * the spinner currently shows, then the Gallery download. Status
-     * messages come from the downloader's state observer.
+     * Sets the quality spinner to the Settings default (v1.5.0) and
+     * clears the per-video override: called once at launch and on every
+     * video load. The programmatic selection is suppressed so the
+     * spinner listener does not mistake it for a user tap.
+     * BEST shows as 1080p in the spinner (the closest label): for
+     * progressive streams the two pick the same file in practice.
+     */
+    private fun applyDefaultQuality() {
+        val position = when (settings.defaultQuality) {
+            DownloadQuality.BEST, DownloadQuality.P1080 -> 0
+            DownloadQuality.P720 -> 1
+            DownloadQuality.P480 -> 2
+            DownloadQuality.P360 -> 3
+            DownloadQuality.AUDIO -> 0
+        }
+        suppressSpinnerCallback = true
+        qualitySpinner.setSelection(position)
+        suppressSpinnerCallback = false
+        spinnerTouchedByUser = false
+    }
+
+    /**
+     * The quality a download actually uses: the spinner's selection when
+     * the user picked one for this video, otherwise the Settings default
+     * (v1.5.0). The spinner never offers BEST, so an untouched spinner
+     * with a BEST default still downloads BEST, not 1080p.
+     */
+    private fun effectiveDownloadQuality(): DownloadQuality {
+        if (spinnerTouchedByUser) {
+            return when (qualitySpinner.selectedItemPosition) {
+                0 -> DownloadQuality.P1080
+                1 -> DownloadQuality.P720
+                2 -> DownloadQuality.P480
+                3 -> DownloadQuality.P360
+                else -> DownloadQuality.AUDIO
+            }
+        }
+        return settings.defaultQuality
+    }
+
+    /**
+     * The one download path, shared by the player's Download button, the
+     * download popup and a row's ⋮ menu: legacy-storage permission
+     * first, then the effective quality, then the Settings gate
+     * (v1.5.0) — WiFi-only and the size limit for the current network —
+     * and only then the Gallery download. Status messages come from the
+     * downloader's state observer; a blocked download reports itself in
+     * the same status line.
+     *
+     * The size used by the gate is an ESTIMATE (bitrate × duration —
+     * the extractor reports no content length in v0.26.5, see
+     * QualitySelector). An unknown size never blocks: the download goes
+     * through, exactly as the spec requires.
      */
     private fun downloadStreams(streams: StreamSet) {
         if (!hasLegacyStoragePermission()) {
@@ -905,18 +1011,19 @@ class MainActivity : AppCompatActivity() {
             statusText.text = getString(R.string.status_error)
             return
         }
-        val quality = when (qualitySpinner.selectedItemPosition) {
-            0 -> DownloadQuality.P1080
-            1 -> DownloadQuality.P720
-            2 -> DownloadQuality.P480
-            else -> DownloadQuality.AUDIO
-        }
+        val quality = effectiveDownloadQuality()
         lifecycleScope.launch {
             if (quality == DownloadQuality.AUDIO) {
                 val audio = QualitySelector.selectAudio(streams.audioStreams)
                 val audioUrl = audio?.url
                 if (audioUrl == null) {
                     statusText.text = getString(R.string.status_download_failed)
+                    return@launch
+                }
+                if (!checkDownloadGate(
+                        QualitySelector.estimateAudioSizeBytes(audio, streams.durationSeconds)
+                    )
+                ) {
                     return@launch
                 }
                 downloader.downloadAudio(
@@ -931,12 +1038,43 @@ class MainActivity : AppCompatActivity() {
                     statusText.text = getString(R.string.status_download_failed)
                     return@launch
                 }
+                if (!checkDownloadGate(
+                        QualitySelector.estimateVideoSizeBytes(
+                            selected.stream,
+                            streams.durationSeconds
+                        )
+                    )
+                ) {
+                    return@launch
+                }
                 downloader.downloadVideo(
                     title = streams.title,
                     streamUrl = videoUrl,
                     actualLabel = selected.actualLabel,
                     extension = QualitySelector.videoExtension(selected.stream)
                 )
+            }
+        }
+    }
+
+    /**
+     * Runs the Settings download gate for an (estimated) file size.
+     * Returns true when the download may proceed; on a block it writes
+     * the reason to the status line and returns false.
+     */
+    private fun checkDownloadGate(sizeBytes: Long): Boolean {
+        return when (val gate = settings.checkDownload(sizeBytes, settings.currentNetworkType())) {
+            DownloadGate.Allowed -> true
+            DownloadGate.BlockedWifiOnly -> {
+                statusText.text = getString(R.string.settings_download_blocked_wifi)
+                false
+            }
+            is DownloadGate.BlockedSizeLimit -> {
+                statusText.text = getString(
+                    R.string.settings_download_blocked_limit,
+                    gate.limitBytes / (1024L * 1024L)
+                )
+                false
             }
         }
     }

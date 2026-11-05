@@ -48,6 +48,11 @@ class GalleryDownloader(
     private val _state = MutableStateFlow<DownloadState>(DownloadState.Idle)
     val state: StateFlow<DownloadState> = _state.asStateFlow()
 
+    /** The user's download subfolder (Settings, v1.5.0): "LittleTube"
+     *  by default, "Videos", or "" for no subfolder. The getter only
+     *  ever returns one of those three, so the paths below are safe. */
+    private val settings = AppSettings(context)
+
     suspend fun downloadVideo(
         title: String,
         streamUrl: String,
@@ -114,10 +119,19 @@ class GalleryDownloader(
             } else {
                 MediaStore.Video.Media.EXTERNAL_CONTENT_URI
             }
+            val sub = settings.downloadSubfolder
             val relativePath = if (isAudio) {
-                "${Environment.DIRECTORY_MUSIC}/LittleTube"
+                if (sub.isEmpty()) {
+                    Environment.DIRECTORY_MUSIC
+                } else {
+                    "${Environment.DIRECTORY_MUSIC}/$sub"
+                }
             } else {
-                "${Environment.DIRECTORY_MOVIES}/LittleTube"
+                if (sub.isEmpty()) {
+                    Environment.DIRECTORY_MOVIES
+                } else {
+                    "${Environment.DIRECTORY_MOVIES}/$sub"
+                }
             }
             val values = ContentValues().apply {
                 put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
@@ -174,11 +188,15 @@ class GalleryDownloader(
     ) {
         val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
         val publicDir = if (isAudio) Environment.DIRECTORY_MUSIC else Environment.DIRECTORY_MOVIES
+        val sub = settings.downloadSubfolder
         val request = DownloadManager.Request(Uri.parse(streamUrl)).apply {
             setTitle(fileName)
             setDescription("LittleTube download")
             setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-            setDestinationInExternalPublicDir(publicDir, "LittleTube/$fileName")
+            setDestinationInExternalPublicDir(
+                publicDir,
+                if (sub.isEmpty()) fileName else "$sub/$fileName"
+            )
             setAllowedOverMetered(true)
             setAllowedOverRoaming(false)
         }
@@ -190,7 +208,7 @@ class GalleryDownloader(
                     intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1L)
                 if (completedId != downloadId) return
                 context.unregisterReceiver(this)
-                val path = queryLocalPath(manager, downloadId)
+                val path = queryLocalPath(manager, downloadId, isAudio)
                 if (path != null) {
                     MediaScannerConnection.scanFile(context, arrayOf(path), arrayOf(mimeType), null)
                 } else {
@@ -201,7 +219,11 @@ class GalleryDownloader(
         context.registerReceiver(receiver, IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE))
     }
 
-    private fun queryLocalPath(manager: DownloadManager, downloadId: Long): String? {
+    private fun queryLocalPath(
+        manager: DownloadManager,
+        downloadId: Long,
+        isAudio: Boolean
+    ): String? {
         manager.query(DownloadManager.Query().setFilterById(downloadId))?.use { cursor ->
             if (cursor.moveToFirst()) {
                 val uriString = cursor.getString(
@@ -211,12 +233,13 @@ class GalleryDownloader(
                 if (uri.scheme == "file") return uri.path
                 if (uri.scheme == "content") {
                     // On some firmwares DownloadManager returns a content Uri;
-                    // fall back to the well-known public path.
+                    // fall back to the well-known public path (with the
+                    // user's subfolder from Settings, v1.5.0).
+                    val publicDir =
+                        if (isAudio) Environment.DIRECTORY_MUSIC else Environment.DIRECTORY_MOVIES
                     return File(
-                        Environment.getExternalStoragePublicDirectory(
-                            Environment.DIRECTORY_MOVIES
-                        ),
-                        "LittleTube"
+                        Environment.getExternalStoragePublicDirectory(publicDir),
+                        settings.downloadSubfolder
                     ).absolutePath
                 }
             }

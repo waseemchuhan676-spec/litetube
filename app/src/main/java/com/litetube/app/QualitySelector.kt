@@ -4,7 +4,8 @@ import org.schabi.newpipe.extractor.stream.AudioStream
 import org.schabi.newpipe.extractor.stream.VideoStream
 
 enum class DownloadQuality {
-    P1080, P720, P480, AUDIO
+    /** Best progressive stream available, whatever its height. */
+    BEST, P1080, P720, P480, P360, AUDIO
 }
 
 /** A progressive (combined audio+video) stream plus the label to show. */
@@ -27,14 +28,22 @@ object QualitySelector {
         stream.resolution.filter { it.isDigit() }.toIntOrNull() ?: 0
 
     fun selectVideo(streams: List<VideoStream>, wanted: DownloadQuality): SelectedVideo? {
+        val progressive = streams.filter { !it.isVideoOnly }
+        if (progressive.isEmpty()) return null
+        if (wanted == DownloadQuality.BEST) {
+            // Best available: the tallest progressive stream, no cap.
+            // (Progressive streams top out at 720p for most videos, 1080p
+            // for some — BEST and P1080 are usually the same file.)
+            val chosen = progressive.maxByOrNull { heightOf(it) } ?: return null
+            return SelectedVideo(chosen, chosen.resolution)
+        }
         val wantedHeight = when (wanted) {
             DownloadQuality.P1080 -> 1080
             DownloadQuality.P720 -> 720
             DownloadQuality.P480 -> 480
-            DownloadQuality.AUDIO -> return null
+            DownloadQuality.P360 -> 360
+            DownloadQuality.BEST, DownloadQuality.AUDIO -> return null
         }
-        val progressive = streams.filter { !it.isVideoOnly }
-        if (progressive.isEmpty()) return null
         val fitting = progressive.filter { heightOf(it) <= wantedHeight }
         val chosen = fitting.maxByOrNull { heightOf(it) }
             ?: progressive.minByOrNull { heightOf(it) }
@@ -44,6 +53,30 @@ object QualitySelector {
 
     fun selectAudio(streams: List<AudioStream>): AudioStream? =
         streams.maxByOrNull { it.averageBitrate }
+
+    /**
+     * Estimated file size in bytes, from the stream's bitrate and the
+     * video duration. The extractor reports NO content length
+     * (org.schabi.newpipe.extractor.stream.Stream has no such field in
+     * v0.26.5 — verified against the extractor source), so this is an
+     * ESTIMATE, not an exact size: for progressive YouTube streams the
+     * itag bitrate is the combined audio+video bitrate, which is what
+     * the file actually contains. Returns -1 when the bitrate or the
+     * duration is unknown — the download gate NEVER blocks on an
+     * unknown size, it lets the download through.
+     */
+    fun estimateVideoSizeBytes(stream: VideoStream, durationSeconds: Long): Long {
+        val bps = stream.bitrate
+        if (bps <= 0 || durationSeconds <= 0) return -1L
+        return bps.toLong() * durationSeconds / 8L
+    }
+
+    /** Same estimate for an audio stream (average bitrate). */
+    fun estimateAudioSizeBytes(stream: AudioStream, durationSeconds: Long): Long {
+        val bps = stream.averageBitrate
+        if (bps <= 0 || durationSeconds <= 0) return -1L
+        return bps.toLong() * durationSeconds / 8L
+    }
 
     fun videoExtension(stream: VideoStream): String =
         stream.format?.suffix?.takeIf { it.isNotBlank() } ?: "mp4"

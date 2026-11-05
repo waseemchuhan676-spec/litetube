@@ -82,6 +82,13 @@ class UpdateManager(
     private val appContext: Context = context.applicationContext
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
+    /** User settings (v1.5.0): the auto-update toggle lives here. The
+     *  manual checkNow() path never consults it — only the two
+     *  automatic entry points (start()'s launch check and the network
+     *  callback) are gated, so turning auto-update off takes effect
+     *  immediately without an app restart. */
+    private val settings = AppSettings(appContext)
+
     private val _state = MutableStateFlow<UpdateState>(UpdateState.Idle)
     val state: StateFlow<UpdateState> = _state.asStateFlow()
 
@@ -93,6 +100,9 @@ class UpdateManager(
 
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
+            // Auto-update off (Settings): no automatic checks at all.
+            // Manual checkNow() calls bypass this gate entirely.
+            if (!settings.autoUpdateEnabled) return
             // Debounce: at most one automatic check per 6 hours. Manual
             // checkNow() calls always bypass the debounce. The timestamp is
             // deliberately NOT set here: it is set only after a successful
@@ -110,8 +120,11 @@ class UpdateManager(
             .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
             .build()
         connectivityManager.registerNetworkCallback(request, networkCallback)
-        // Also check immediately: the device may already be online.
-        scope.launch { checkForUpdate() }
+        // Also check immediately: the device may already be online —
+        // but only when auto-update is on (Settings, v1.5.0).
+        if (settings.autoUpdateEnabled) {
+            scope.launch { checkForUpdate() }
+        }
     }
 
     /** Stop listening and cancel in-flight work. Call from onDestroy. */
