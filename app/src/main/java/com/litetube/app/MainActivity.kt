@@ -1,9 +1,13 @@
 package com.litetube.app
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.View
@@ -11,6 +15,7 @@ import android.view.inputmethod.EditorInfo
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
+import android.widget.ImageButton
 import android.widget.ProgressBar
 import android.widget.Spinner
 import android.widget.TextView
@@ -25,6 +30,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
+import java.util.Locale
 
 /**
  * Orchestrates everything, in this order:
@@ -34,6 +40,12 @@ import okhttp3.OkHttpClient
  * Search extras (v1.1.0): while typing, YouTube suggestions merged with
  * the user's own recent searches show under the search bar; after a video
  * loads, its related videos show in a second list under the player.
+ *
+ * Voice search (v1.2.0): the mic button in the search bar listens with
+ * SpeechRecognizer and searches what was heard, exactly like typed text.
+ * The button is hidden on devices with no recognizer (common on TV boxes
+ * without the Google app), and the mic permission is asked only when the
+ * button is tapped, never at app start.
  *
  * Update checks live in LiteTubeApp (Application scope), not here. This
  * activity only calls installPendingUpdate() on resume: after the user
@@ -56,8 +68,12 @@ class MainActivity : AppCompatActivity() {
     /** True while the code itself sets the search text (picking a
      *  suggestion): the TextWatcher must not re-fire a suggestion fetch. */
     private var suppressSuggestionRefresh = false
+    /** Voice search state: the live recognizer, if one is listening. */
+    private var speechRecognizer: SpeechRecognizer? = null
+    private var listening = false
 
     private lateinit var searchInput: EditText
+    private lateinit var voiceButton: ImageButton
     private lateinit var statusText: TextView
     private lateinit var loadingBar: ProgressBar
     private lateinit var videoTitle: TextView
@@ -73,6 +89,7 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val LEGACY_STORAGE_REQUEST = 1001
+        private const val VOICE_REQUEST = 1002
         private val VIDEO_ID_REGEX = Regex("^[A-Za-z0-9_-]{11}$")
         /** Wait after the last keystroke before asking YouTube for
          *  suggestions, so one request per pause instead of per letter. */
@@ -164,6 +181,15 @@ class MainActivity : AppCompatActivity() {
         }
 
         findViewById<Button>(R.id.searchButton).setOnClickListener { doSearch() }
+
+        voiceButton = findViewById(R.id.voiceButton)
+        voiceButton.setOnClickListener { onVoiceButtonClicked() }
+        // No speech recognizer on this device (no Google app / no mic,
+        // common on TV boxes): hide the mic entirely so the UI never
+        // shows a dead button. GONE views are skipped by D-Pad focus.
+        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+            voiceButton.visibility = View.GONE
+        }
         searchInput.setOnEditorActionListener { _, actionId, _ ->
             if (actionId == EditorInfo.IME_ACTION_SEARCH) {
                 doSearch()
@@ -338,6 +364,131 @@ class MainActivity : AppCompatActivity() {
         doSearch()
     }
 
+    // ---- Voice search (mic button in the search bar) ----
+
+    /**
+     * Mic tap: if already listening, tapping again stops. Otherwise the
+     * mic permission is requested first (API 23+ only, and only on tap —
+     * never at app start); once granted, listening starts.
+     */
+    private fun onVoiceButtonClicked() {
+        if (!SpeechRecognizer.isRecognitionAvailable(this)) return
+        if (listening) {
+            speechRecognizer?.stopListening()
+            return
+        }
+        if (Build.VERSION.SDK_INT >= 23 &&
+            ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.RECORD_AUDIO
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.RECORD_AUDIO),
+                VOICE_REQUEST
+            )
+            return
+        }
+        startListening()
+    }
+
+    /**
+     * Listens with the system speech recognizer, in the device default
+     * language (never hardcoded). The transcript goes into the search
+     * field and runs the normal search, so history saving, suggestions
+     * and the link/id path all behave exactly like typed text.
+     */
+    private fun startListening() {
+        val recognizer = try {
+            SpeechRecognizer.createSpeechRecognizer(this)
+        } catch (e: Exception) {
+            null
+        } ?: run {
+            statusText.text = getString(R.string.status_error)
+            return
+        }
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(
+                RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
+            )
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault().toLanguageTag())
+            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+        }
+        recognizer.setRecognitionListener(object : RecognitionListener {
+            override fun onReadyForSpeech(params: Bundle?) {
+                statusText.text = getString(R.string.status_listening)
+            }
+
+            override fun onBeginningOfSpeech() = Unit
+            override fun onRmsChanged(rmsdB: Float) = Unit
+            override fun onBufferReceived(buffer: ByteArray?) = Unit
+            override fun onEndOfSpeech() = Unit
+            override fun onPartialResults(partialResults: Bundle?) = Unit
+            override fun onEvent(eventType: Int, params: Bundle?) = Unit
+
+            override fun onError(error: Int) {
+                // onPause cancels the recognizer and clears `listening`
+                // first: that late error is not a real failure, ignore it.
+                if (!listening) return
+                listening = false
+                speechRecognizer?.destroy()
+                speechRecognizer = null
+                statusText.text = getString(R.string.status_error)
+            }
+
+            override fun onResults(results: Bundle?) {
+                if (!listening) return
+                listening = false
+                speechRecognizer?.destroy()
+                speechRecognizer = null
+                val heard = results
+                    ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                    ?.firstOrNull()?.trim().orEmpty()
+                if (heard.isEmpty()) {
+                    statusText.text = getString(R.string.status_error)
+                    return
+                }
+                suppressSuggestionRefresh = true
+                searchInput.setText(heard)
+                searchInput.setSelection(heard.length)
+                suppressSuggestionRefresh = false
+                doSearch()
+            }
+        })
+        try {
+            recognizer.startListening(intent)
+        } catch (e: Exception) {
+            recognizer.destroy()
+            statusText.text = getString(R.string.status_error)
+            return
+        }
+        speechRecognizer = recognizer
+        listening = true
+        statusText.text = getString(R.string.status_listening)
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == VOICE_REQUEST) {
+            if (grantResults.isNotEmpty() &&
+                grantResults[0] == PackageManager.PERMISSION_GRANTED
+            ) {
+                startListening()
+            } else {
+                // Clear rationale: voice search cannot work without the mic.
+                statusText.text = getString(R.string.status_voice_permission_denied)
+            }
+        }
+        // NOTE: the legacy storage request has no result handling here by
+        // design — it was fire-and-forget before this change and stays so.
+    }
+
     private fun doDownload() {
         val streams = currentStreams ?: return
         if (!hasLegacyStoragePermission()) {
@@ -448,11 +599,19 @@ class MainActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
+        // Never leave the mic open while the activity is not visible:
+        // clear `listening` first so the cancel's late onError is ignored.
+        listening = false
+        speechRecognizer?.cancel()
+        speechRecognizer?.destroy()
+        speechRecognizer = null
         playerManager.pause()
     }
 
     override fun onDestroy() {
         super.onDestroy()
+        speechRecognizer?.destroy()
+        speechRecognizer = null
         playerManager.release()
     }
 }
