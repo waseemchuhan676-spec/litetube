@@ -8,6 +8,11 @@
     <string name="status_idle">Enter a search term or a video link above.</string>
     <string name="status_loading">Loading…</string>
     <string name="status_no_results">No results found.</string>
+    <string name="status_results_count">%1$d videos found</string>
+    <string name="related_header">Related videos</string>
+    <string name="recent_searches_header">Recent searches</string>
+    <string name="suggestions_header">Suggestions</string>
+    <string name="clear_history">Clear</string>
     <string name="status_error">Something went wrong. Check your connection and try again.</string>
     <string name="status_downloading">Downloading…</string>
     <string name="status_download_done">Saved to Gallery.</string>
