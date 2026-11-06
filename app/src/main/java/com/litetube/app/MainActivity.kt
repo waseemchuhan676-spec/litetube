@@ -26,6 +26,7 @@ import android.widget.PopupMenu
 import android.widget.ProgressBar
 import android.widget.Spinner
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -395,16 +396,16 @@ class MainActivity : AppCompatActivity() {
         selectChip(chipAll)
 
         findViewById<View>(R.id.shortcutYouTube).setOnClickListener {
-            openAppOrWeb("com.google.android.youtube", "https://www.youtube.com")
+            openService("https://www.youtube.com", "com.google.android.youtube")
         }
         findViewById<View>(R.id.shortcutWhatsApp).setOnClickListener {
-            openWhatsApp()
+            openService("https://www.whatsapp.com", "com.whatsapp", "com.whatsapp.w4b")
         }
         findViewById<View>(R.id.shortcutFacebook).setOnClickListener {
-            openAppOrWeb("com.facebook.katana", "https://www.facebook.com")
+            openService("https://www.facebook.com", "com.facebook.katana", "com.facebook.lite")
         }
         findViewById<View>(R.id.shortcutInstagram).setOnClickListener {
-            openAppOrWeb("com.instagram.android", "https://www.instagram.com")
+            openService("https://www.instagram.com", "com.instagram.android")
         }
         findViewById<View>(R.id.shortcutSites).setOnClickListener {
             showSitesDialog()
@@ -419,6 +420,14 @@ class MainActivity : AppCompatActivity() {
             hideDownloadPopup()
         }
         downloadPopupDismiss.setOnClickListener { hideDownloadPopup() }
+
+        // Player download arrow (v1.7.0): the big red arrow on the playing
+        // video itself — same download as the popup button, so the user
+        // never has to hunt for it. The popup stays for the per-video
+        // quality choice; the arrow uses the effective quality.
+        findViewById<ImageButton>(R.id.playerDownloadButton).setOnClickListener {
+            doDownload()
+        }
 
         // Quality selector, now INSIDE the download popup (v1.6.0 — the
         // bottom quality + download row is gone). The spinner offers
@@ -550,36 +559,41 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Opens [webUrl] inside the app [packageName] when it is installed
-     * (YouTube / Facebook / Instagram handle their own URLs), otherwise
-     * in the browser. Nothing installed at all (no browser either):
+     * Social shortcut (v1.7.0): opens the service's own app when it is
+     * installed, otherwise its official website in the browser.
+     *
+     * Login happens inside the service itself, never inside LittleTube:
+     * in the app the user is already signed in (or signs in there);
+     * on the website they sign in with their own account in the
+     * browser. LittleTube never sees or stores any login.
+     *
+     * Why this exists: on Android 11+ PackageManager hides apps that
+     * are not declared in the manifest's <queries> block, so the old
+     * code's getLaunchIntentForPackage("com.whatsapp") returned null
+     * even with WhatsApp installed, and the tap opened whatsapp.com
+     * in the browser instead of the app. The <queries> block now
+     * declares every package below, so the check sees the real
+     * installed apps. WhatsApp Business and Facebook Lite are tried
+     * as fallbacks. Nothing installed at all (no browser either):
      * the generic error status, never a crash.
      */
-    private fun openAppOrWeb(packageName: String, webUrl: String) {
-        val appIntent = Intent(Intent.ACTION_VIEW, Uri.parse(webUrl))
-            .setPackage(packageName)
-        try {
-            startActivity(appIntent)
-        } catch (e: ActivityNotFoundException) {
-            openWeb(webUrl)
-        }
-    }
-
-    /**
-     * WhatsApp has no web URL that opens the app itself, so open the app
-     * directly when installed; otherwise fall back to its website.
-     */
-    private fun openWhatsApp() {
-        val launch = packageManager.getLaunchIntentForPackage("com.whatsapp")
-        if (launch != null) {
-            try {
-                startActivity(launch)
-                return
-            } catch (e: ActivityNotFoundException) {
-                // Fall through to the website below.
+    private fun openService(webUrl: String, vararg packages: String) {
+        for (packageName in packages) {
+            val launch = packageManager.getLaunchIntentForPackage(packageName)
+            if (launch != null) {
+                try {
+                    startActivity(launch)
+                    return
+                } catch (e: ActivityNotFoundException) {
+                    // Try the next package in the list.
+                }
             }
         }
-        openWeb("https://www.whatsapp.com")
+        // No app installed: the official site in the browser, where the
+        // user logs in with their own account. Say so, so the tap never
+        // looks dead.
+        Toast.makeText(this, R.string.opening_in_browser, Toast.LENGTH_SHORT).show()
+        openWeb(webUrl)
     }
 
     /** Plain browser open, with the same never-crash fallback. */

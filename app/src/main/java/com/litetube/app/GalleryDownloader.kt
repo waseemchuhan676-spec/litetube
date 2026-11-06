@@ -19,6 +19,7 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
+import java.util.concurrent.TimeUnit
 
 sealed interface DownloadState {
     data object Idle : DownloadState
@@ -39,10 +40,20 @@ sealed interface DownloadState {
  * - API 21–28 (legacy): DownloadManager into the public Movies/Music
  *   directory, then MediaScannerConnection.scanFile() on completion so the
  *   file is indexed immediately.
+ *
+ * Download reliability (v1.7.0): the file request carries a browser-like
+ * User-Agent + YouTube Referer (a bare OkHttp request is what Google's
+ * servers abort mid-stream — "Software caused connection abort"), the
+ * client allows slow networks (60 s read timeout instead of OkHttp's
+ * 10 s default), and a failed download retries once automatically.
  */
 class GalleryDownloader(
     private val context: Context,
-    private val okHttpClient: OkHttpClient = OkHttpClient()
+    private val okHttpClient: OkHttpClient = OkHttpClient.Builder()
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(60, TimeUnit.SECONDS)
+        .writeTimeout(60, TimeUnit.SECONDS)
+        .build()
 ) {
 
     private val _state = MutableStateFlow<DownloadState>(DownloadState.Idle)
@@ -92,16 +103,27 @@ class GalleryDownloader(
         actualQuality: String
     ) {
         _state.value = DownloadState.Running(0)
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                downloadViaMediaStore(streamUrl, fileName, mimeType, isAudio)
-            } else {
-                downloadViaDownloadManager(streamUrl, fileName, mimeType, isAudio)
+        // One automatic retry (v1.7.0): on a slow or flaky network the
+        // first attempt can abort mid-stream ("Software caused connection
+        // abort"). The failed attempt's partial file is already deleted
+        // by the path below, so the retry starts clean. Two attempts
+        // max — never an endless loop. Only the last error is reported.
+        var lastError: Exception? = null
+        repeat(2) { attempt ->
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    downloadViaMediaStore(streamUrl, fileName, mimeType, isAudio)
+                } else {
+                    downloadViaDownloadManager(streamUrl, fileName, mimeType, isAudio)
+                }
+                _state.value = DownloadState.Done(fileName, actualQuality)
+                return
+            } catch (e: Exception) {
+                lastError = e
+                if (attempt == 0) _state.value = DownloadState.Running(0)
             }
-            _state.value = DownloadState.Done(fileName, actualQuality)
-        } catch (e: Exception) {
-            _state.value = DownloadState.Failed(e.message ?: "Download failed")
         }
+        _state.value = DownloadState.Failed(lastError?.message ?: "Download failed")
     }
 
     // ---- API 29+: MediaStore + OkHttp streaming copy ----
@@ -142,7 +164,14 @@ class GalleryDownloader(
             val uri = resolver.insert(collection, values)
                 ?: throw IllegalStateException("MediaStore insert failed")
             try {
-                val request = Request.Builder().url(streamUrl).build()
+                // Browser-like headers (v1.7.0): Google's servers abort
+                // bare OkHttp file requests mid-stream; the same
+                // User-Agent the thumbnails already use, plus Referer.
+                val request = Request.Builder()
+                    .url(streamUrl)
+                    .header("User-Agent", "Mozilla/5.0 (Linux; Android 10) LittleTube/1.0")
+                    .header("Referer", "https://www.youtube.com/")
+                    .build()
                 okHttpClient.newCall(request).execute().use { response ->
                     if (!response.isSuccessful) {
                         throw IllegalStateException("HTTP ${response.code}")
@@ -192,6 +221,9 @@ class GalleryDownloader(
         val request = DownloadManager.Request(Uri.parse(streamUrl)).apply {
             setTitle(fileName)
             setDescription("LittleTube download")
+            // Same browser-like headers as the MediaStore path (v1.7.0).
+            addRequestHeader("User-Agent", "Mozilla/5.0 (Linux; Android 10) LittleTube/1.0")
+            addRequestHeader("Referer", "https://www.youtube.com/")
             setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
             setDestinationInExternalPublicDir(
                 publicDir,
