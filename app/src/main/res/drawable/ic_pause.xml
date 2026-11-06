@@ -3,7 +3,9 @@
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
+    <!-- Pause bars (v1.7.0: DARK #1A1A1A, not white — same blank-white-box
+         cause as ic_play: white icon on the white focus_border button). -->
     <path
-        android:fillColor="#FFFFFF"
+        android:fillColor="#1A1A1A"
         android:pathData="M6,5h4v14H6zM14,5h4v14h-4z" />
 </vector>

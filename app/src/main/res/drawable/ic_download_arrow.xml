@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- White download arrow into a tray (v1.7.0): the player download
+         button — same geometry as ic_download, white so it reads on
+         the red circle background. -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M11,3h2v8h3l-4,5 -4,-5h3zM4,17h16v3H4z" />
+</vector>

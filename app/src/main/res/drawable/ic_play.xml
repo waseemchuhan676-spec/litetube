@@ -3,7 +3,10 @@
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
+    <!-- Play triangle (v1.7.0: DARK #1A1A1A, not white — the white icon
+         on the white focus_border button rendered as a blank white box
+         over the playing video). -->
     <path
-        android:fillColor="#FFFFFF"
+        android:fillColor="#1A1A1A"
         android:pathData="M8,5v14l11,-7z" />
 </vector>

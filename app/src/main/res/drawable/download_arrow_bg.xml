@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Red circle behind the player download arrow (v1.7.0): brand red,
+     so the download button is the most visible control on the playing
+     video — impossible to miss, and never a blank white box. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <solid android:color="@color/lt_red" />
+</shape>
