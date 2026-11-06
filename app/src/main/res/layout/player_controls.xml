@@ -1,8 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Minimal Media3 controller: play/pause only, so the remote never gets
-     trapped in a big controller bar. The PlayerView itself stays
-     non-focusable; these buttons are reachable only while the controller
-     is shown, and focus returns to the activity controls afterwards. -->
+<!-- Minimal Media3 controller (v1.7.0): play/pause toggle + a big red
+     download arrow. The PlayerView shows this bar over the video when
+     playback starts (and when the user taps the video), so the download
+     arrow is right there, impossible to miss. Play/pause icons are DARK
+     now — the old white icons on the white button background rendered
+     as two blank white boxes over every playing video. The download
+     arrow runs the same download as the popup's Download button. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
@@ -25,5 +28,17 @@
         android:background="@drawable/focus_border"
         android:contentDescription="@string/play_pause"
         android:src="@drawable/ic_pause" />
+
+    <!-- Download arrow: red circle + white arrow, the most visible
+         control on the playing video. -->
+    <ImageButton
+        android:id="@+id/playerDownloadButton"
+        android:layout_width="56dp"
+        android:layout_height="56dp"
+        android:layout_marginStart="12dp"
+        android:background="@drawable/download_arrow_bg"
+        android:contentDescription="@string/download_video"
+        android:padding="12dp"
+        android:src="@drawable/ic_download_arrow" />
 
 </LinearLayout>
