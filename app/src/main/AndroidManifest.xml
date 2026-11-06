@@ -44,6 +44,27 @@
         android:name="android.software.leanback"
         android:required="false" />
 
+    <!-- Social shortcuts (v1.7.0): Android 11+ hides installed apps
+         from PackageManager queries unless they are declared here.
+         Without this, getLaunchIntentForPackage() returns null even
+         when the app IS installed — WhatsApp opened its website
+         instead of the app. Declaring the packages (plus WhatsApp
+         Business / Facebook Lite fallbacks and a generic https VIEW
+         intent so browser resolution works) makes the shortcut
+         buttons open the real apps. No data is collected. -->
+    <queries>
+        <package android:name="com.google.android.youtube" />
+        <package android:name="com.whatsapp" />
+        <package android:name="com.whatsapp.w4b" />
+        <package android:name="com.facebook.katana" />
+        <package android:name="com.facebook.lite" />
+        <package android:name="com.instagram.android" />
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+    </queries>
+
     <application
         android:name=".LiteTubeApp"
         android:allowBackup="true"
