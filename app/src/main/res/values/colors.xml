@@ -14,4 +14,11 @@
     <color name="lt_border">#DADADA</color>
     <!-- Search pill fill (v1.6.0): light grey, no red anywhere. -->
     <color name="lt_pill_grey">#EFEFEF</color>
+    <!-- Bottom-nav dark bar (v1.8.0, LittleTube brand navy, same as the
+         website #0a1628): the white pill is gone; the nav is a dark bar
+         so it is clearly separate from the white video cards above it.
+         Idle tab labels/icons are white on it, selected tab stays red. -->
+    <color name="lt_navy">#0A1628</color>
+    <color name="lt_navy_focus">#1E3A5F</color>
+    <color name="lt_navy_pressed">#16324F</color>
 </resources>

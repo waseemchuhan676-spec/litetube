@@ -40,6 +40,7 @@
          border: its background is @drawable/search_pill (light grey,
          grey border on focus only). -->
     <LinearLayout
+        android:id="@+id/topSearchRow"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:gravity="center_vertical"
@@ -166,6 +167,7 @@
          ever wraps or clips mid-word ("Action Thrillers" scrolls, it
          does not wrap). -->
     <HorizontalScrollView
+        android:id="@+id/chipsScroll"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="10dp"
@@ -265,6 +267,7 @@
          website (YouTube, WhatsApp, Facebook, Instagram, and Sites for
          a few more). No ads, no sponsored cards. -->
     <LinearLayout
+        android:id="@+id/shortcutsRow"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="10dp"
@@ -630,10 +633,11 @@
         android:nextFocusUp="@+id/downloadPopupButton"
         android:visibility="gone" />
 
-    <!-- Bottom navigation (VidMate reference): a FLOATING white pill,
-         lifted with elevation, always visible at the bottom. The five
-         tabs inside have no boxes of their own (transparent tab
-         background, grey on focus); the selected tab turns red in code.
+    <!-- Bottom navigation (v1.8.0, LittleTube brand): a FLOATING dark
+         navy bar (#0a1628), lifted with elevation, always visible at
+         the bottom. The five tabs inside have no boxes of their own
+         (transparent tab background, lighter-navy on focus); idle
+         labels/icons are white, the selected tab turns red in code.
          D-Pad LEFT/RIGHT between tabs, UP back to the related list.
          No Material dependency. HOME restores the home feed, SHORTS /
          GAME load feeds, MY FILES opens the Downloads folder, ME shows
@@ -684,7 +688,7 @@
                 android:paddingTop="2dp"
                 android:singleLine="true"
                 android:text="@string/nav_home"
-                android:textColor="@color/lt_text_secondary"
+                android:textColor="@color/lt_surface"
                 android:textSize="10sp" />
         </LinearLayout>
 
@@ -720,7 +724,7 @@
                 android:paddingTop="2dp"
                 android:singleLine="true"
                 android:text="@string/nav_shorts"
-                android:textColor="@color/lt_text_secondary"
+                android:textColor="@color/lt_surface"
                 android:textSize="10sp" />
         </LinearLayout>
 
@@ -756,7 +760,7 @@
                 android:paddingTop="2dp"
                 android:singleLine="true"
                 android:text="@string/nav_game"
-                android:textColor="@color/lt_text_secondary"
+                android:textColor="@color/lt_surface"
                 android:textSize="10sp" />
         </LinearLayout>
 
@@ -792,7 +796,7 @@
                 android:paddingTop="2dp"
                 android:singleLine="true"
                 android:text="@string/nav_my_files"
-                android:textColor="@color/lt_text_secondary"
+                android:textColor="@color/lt_surface"
                 android:textSize="10sp" />
         </LinearLayout>
 
@@ -828,7 +832,7 @@
                 android:paddingTop="2dp"
                 android:singleLine="true"
                 android:text="@string/nav_me"
-                android:textColor="@color/lt_text_secondary"
+                android:textColor="@color/lt_surface"
                 android:textSize="10sp" />
         </LinearLayout>
     </LinearLayout>

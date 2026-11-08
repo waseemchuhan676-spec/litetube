@@ -171,6 +171,14 @@ class MainActivity : AppCompatActivity() {
     private lateinit var bottomTabLabels: List<TextView>
     private lateinit var bottomTabIcons: List<ImageView>
 
+    /** VidMate-style scroll hide (v1.8.0): the top section — search row,
+     *  category chips and social shortcuts — that hides when the home
+     *  feed scrolls down and comes back on scroll up. */
+    private lateinit var topSearchRow: View
+    private lateinit var chipsScroll: View
+    private lateinit var shortcutsRow: View
+    private var topSectionHidden = false
+
     companion object {
         private const val LEGACY_STORAGE_REQUEST = 1001
         private const val VOICE_REQUEST = 1002
@@ -228,6 +236,25 @@ class MainActivity : AppCompatActivity() {
             thumbnailLoader = thumbnailLoader
         )
         resultsList.adapter = resultsAdapter
+
+        // VidMate-style scroll hide (v1.8.0): scrolling the home feed
+        // down hides the search row, the category chips and the social
+        // shortcuts so the videos get the full screen; scrolling up
+        // brings them back. The bottom nav stays visible.
+        topSearchRow = findViewById(R.id.topSearchRow)
+        chipsScroll = findViewById(R.id.chipsScroll)
+        shortcutsRow = findViewById(R.id.shortcutsRow)
+        resultsList.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                if (dy > 0) {
+                    // Only hide when there is more content below to
+                    // scroll into; a short list never hides the top.
+                    if (recyclerView.canScrollVertically(1)) setTopSectionHidden(true)
+                } else if (dy < 0 || !recyclerView.canScrollVertically(-1)) {
+                    setTopSectionHidden(false)
+                }
+            }
+        })
 
         suggestionsHeaderRow = findViewById(R.id.suggestionsHeaderRow)
         suggestionsHeader = findViewById(R.id.suggestionsHeader)
@@ -529,6 +556,7 @@ class MainActivity : AppCompatActivity() {
      * the cached home feed back, or reload it when there is none yet.
      */
     private fun showHome() {
+        setTopSectionHidden(false)
         suppressSuggestionRefresh = true
         searchInput.setText("")
         suppressSuggestionRefresh = false
@@ -549,6 +577,7 @@ class MainActivity : AppCompatActivity() {
      * and the previous list stays as it was.
      */
     private fun loadCategory(query: String, chip: TextView?) {
+        setTopSectionHidden(false)
         selectChip(chip)
         suppressSuggestionRefresh = true
         searchInput.setText(query)
@@ -674,9 +703,28 @@ class MainActivity : AppCompatActivity() {
     }
 
     /** Highlights bottom tab [index] (red icon + label) and greys the rest. */
+    /**
+     * VidMate-style scroll hide (v1.8.0): hides or shows the top section
+     * (search row + category chips + social shortcuts) as one block.
+     * The results list has weight 1, so hiding the top gives the videos
+     * the freed space. Never hides while the search suggestions are
+     * showing or the search field has focus — the user is typing then.
+     * A new feed/search always brings the top back (see showHome,
+     * doSearch, loadCategory), so a short list can never trap it hidden.
+     */
+    private fun setTopSectionHidden(hidden: Boolean) {
+        if (hidden == topSectionHidden) return
+        if (hidden && (suggestionsList.visibility == View.VISIBLE || searchInput.hasFocus())) return
+        topSectionHidden = hidden
+        val visibility = if (hidden) View.GONE else View.VISIBLE
+        topSearchRow.visibility = visibility
+        chipsScroll.visibility = visibility
+        shortcutsRow.visibility = visibility
+    }
+
     private fun selectBottomTab(index: Int) {
         val selectedColor = ContextCompat.getColor(this, R.color.lt_red)
-        val idleColor = ContextCompat.getColor(this, R.color.lt_text_secondary)
+        val idleColor = ContextCompat.getColor(this, R.color.lt_surface)
         for (i in bottomTabLabels.indices) {
             val active = i == index
             bottomTabLabels[i].setTextColor(if (active) selectedColor else idleColor)
@@ -790,6 +838,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun doSearch() {
+        setTopSectionHidden(false)
         val input = searchInput.text.toString().trim()
         if (input.isEmpty()) return
         hideSuggestions()

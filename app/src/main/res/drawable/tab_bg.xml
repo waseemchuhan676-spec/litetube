@@ -1,17 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Bottom-nav tab background (v1.6.0): transparent by default (the tab
-     is just an icon + label inside the floating pill); a light-grey
-     rounded fill on focus/press so D-Pad focus is visible. -->
+<!-- Bottom-nav tab background (v1.8.0): transparent by default (the tab
+     is just an icon + label inside the dark navy bar); a lighter-navy
+     rounded fill on focus/press so D-Pad focus is visible on the dark
+     bar. (v1.6.0 used light-grey fills, which belonged to the old
+     white pill.) -->
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:state_focused="true">
         <shape android:shape="rectangle">
-            <solid android:color="#EDEDED" />
+            <solid android:color="@color/lt_navy_focus" />
             <corners android:radius="16dp" />
         </shape>
     </item>
     <item android:state_pressed="true">
         <shape android:shape="rectangle">
-            <solid android:color="#E0E0E0" />
+            <solid android:color="@color/lt_navy_pressed" />
             <corners android:radius="16dp" />
         </shape>
     </item>

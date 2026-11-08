@@ -1,10 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Floating bottom navigation bar (v1.6.0, VidMate reference): a white
-     pill with 24dp corners, lifted off the background with elevation
-     (set in the layout). The five tabs sit inside it with no boxes of
-     their own; the selected tab turns red in code. -->
+<!-- Floating bottom navigation bar (v1.8.0, LittleTube brand): a DARK
+     NAVY bar (#0a1628, same as the website) with 24dp corners, lifted
+     off the background with elevation (set in the layout). The white
+     pill is gone: on the light feed it looked like a white banner and
+     the videos above it did not show clearly. The five tabs sit inside
+     it with no boxes of their own; idle labels/icons are white, the
+     selected tab turns red in code. -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
-    <solid android:color="@color/lt_surface" />
+    <solid android:color="@color/lt_navy" />
     <corners android:radius="24dp" />
 </shape>
