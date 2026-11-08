@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- LittleTube logo (v1.10.0): red rounded rectangle + white play
+     triangle — the same mark as the website and the launcher icon
+     (red background + white triangle), drawn as one vector so the
+     splash screen can show it large and crisp. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="120dp"
+    android:height="84dp"
+    android:viewportWidth="240"
+    android:viewportHeight="168">
+    <path
+        android:fillColor="#FF0000"
+        android:pathData="M32,8 H208 A24,24 0 0 1 232,32 V136 A24,24 0 0 1 208,160 H32 A24,24 0 0 1 8,136 V32 A24,24 0 0 1 32,8 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M96,56 L152,84 L96,112 Z" />
+</vector>

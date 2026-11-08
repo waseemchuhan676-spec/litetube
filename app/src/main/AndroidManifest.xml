@@ -75,10 +75,16 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.LiteTube">
 
+        <!-- Starting screen (v1.10.0, YouTube/VidMate style): the app
+             now opens on the splash (logo on dark navy) and hands over
+             to MainActivity after ~1.5s. Both launcher filters live
+             here now — MainActivity is only ever started from inside
+             the app. -->
         <activity
-            android:name=".MainActivity"
+            android:name=".SplashActivity"
             android:exported="true"
-            android:screenOrientation="unspecified">
+            android:screenOrientation="unspecified"
+            android:theme="@style/Theme.LittleTube.Splash">
             <!-- Standard phone/tablet launcher. -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -90,6 +96,11 @@
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:screenOrientation="unspecified" />
 
         <!-- Settings screen (v1.5.0): updates, downloads, about.
              Internal only — never launched from outside the app. -->

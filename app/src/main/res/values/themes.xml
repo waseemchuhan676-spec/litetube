@@ -12,4 +12,12 @@
         <item name="colorPrimaryDark">@color/lt_red_dark</item>
         <item name="colorAccent">@color/lt_red</item>
     </style>
+
+    <!-- Starting screen theme (v1.10.0): dark navy window background so
+         the splash never flashes white while the app starts; fullscreen
+         so the logo screen fills the whole display like YouTube's. -->
+    <style name="Theme.LittleTube.Splash" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:windowBackground">@color/lt_navy</item>
+        <item name="android:windowFullscreen">true</item>
+    </style>
 </resources>
