@@ -14,6 +14,8 @@ import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.text.Editable
 import android.text.TextWatcher
+import android.view.GestureDetector
+import android.view.MotionEvent
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.widget.AdapterView
@@ -178,6 +180,15 @@ class MainActivity : AppCompatActivity() {
     private lateinit var chipsScroll: View
     private lateinit var shortcutsRow: View
     private var topSectionHidden = false
+
+    /** Natural player controls (v1.9.0): double-tap seek feedback pills
+     *  inside the controller layout. */
+    private lateinit var seekBackLabel: TextView
+    private lateinit var seekForwardLabel: TextView
+    private val hideSeekFeedbackRunnable = Runnable {
+        seekBackLabel.visibility = View.GONE
+        seekForwardLabel.visibility = View.GONE
+    }
 
     companion object {
         private const val LEGACY_STORAGE_REQUEST = 1001
@@ -455,6 +466,45 @@ class MainActivity : AppCompatActivity() {
         findViewById<ImageButton>(R.id.playerDownloadButton).setOnClickListener {
             doDownload()
         }
+
+        // Player share button (v1.9.0): shares the playing video's title
+        // + watch link through the Android share sheet.
+        findViewById<ImageButton>(R.id.playerShareButton).setOnClickListener {
+            shareCurrentVideo()
+        }
+
+        // Natural player gestures (v1.9.0, YouTube/VidMate style): single
+        // tap on the video toggles play/pause; double-tap left seeks
+        // -10s, double-tap right seeks +10s, double-tap middle toggles
+        // play/pause. The controller bar (play/pause, seek bar, download,
+        // share) is the only place buttons live — nothing big floats over
+        // the video anymore. Touches on the bar's own buttons never reach
+        // this listener (Android dispatches them to the button first), so
+        // tapping Download or Share can never pause the video by accident.
+        // controller_hide_on_touch is false in the layout, so this
+        // listener owns showing the controller after every tap.
+        seekBackLabel = findViewById(R.id.seekBackLabel)
+        seekForwardLabel = findViewById(R.id.seekForwardLabel)
+        val playerGestures = GestureDetector(this,
+            object : GestureDetector.SimpleOnGestureListener() {
+                override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
+                    togglePlayPause()
+                    playerView.showController()
+                    return true
+                }
+
+                override fun onDoubleTap(e: MotionEvent): Boolean {
+                    val width = playerView.width.toFloat()
+                    when {
+                        e.x < width / 3f -> seekBy(-10_000, seekBackLabel)
+                        e.x > width * 2f / 3f -> seekBy(10_000, seekForwardLabel)
+                        else -> togglePlayPause()
+                    }
+                    playerView.showController()
+                    return true
+                }
+            })
+        playerView.setOnTouchListener { _, event -> playerGestures.onTouchEvent(event) }
 
         // Quality selector, now INSIDE the download popup (v1.6.0 — the
         // bottom quality + download row is gone). The spinner offers
@@ -1051,6 +1101,42 @@ class MainActivity : AppCompatActivity() {
     private fun doDownload() {
         val streams = currentStreams ?: return
         downloadStreams(streams)
+    }
+
+    /** Single tap on the video (v1.9.0): toggles play/pause. No-op when
+     *  nothing is loaded yet. */
+    private fun togglePlayPause() {
+        val player = playerManager.player
+        if (player.isPlaying) player.pause() else player.play()
+    }
+
+    /** Double-tap seek (v1.9.0): +/-10s, clamped at 0 (ExoPlayer clamps
+     *  the far end itself). Shows the matching feedback pill. */
+    private fun seekBy(deltaMs: Long, label: TextView) {
+        val player = playerManager.player
+        player.seekTo((player.currentPosition + deltaMs).coerceAtLeast(0))
+        showSeekFeedback(label)
+    }
+
+    /** Flashes one seek pill for ~700ms; a repeat double-tap restarts
+     *  the timer instead of stacking hides. */
+    private fun showSeekFeedback(label: TextView) {
+        playerView.removeCallbacks(hideSeekFeedbackRunnable)
+        seekBackLabel.visibility = View.GONE
+        seekForwardLabel.visibility = View.GONE
+        label.visibility = View.VISIBLE
+        playerView.postDelayed(hideSeekFeedbackRunnable, 700)
+    }
+
+    /** Shares the playing video's title + watch link (v1.9.0). */
+    private fun shareCurrentVideo() {
+        val streams = currentStreams ?: return
+        val text = "${streams.title}\n${streams.pageUrl}"
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, text)
+        }
+        startActivity(Intent.createChooser(intent, getString(R.string.share_video)))
     }
 
     /**

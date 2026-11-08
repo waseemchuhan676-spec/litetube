@@ -16,6 +16,7 @@
     <string name="status_voice_permission_denied">Microphone permission is needed for voice search.</string>
     <string name="download">Download</string>
     <string name="download_video">Download video</string>
+    <string name="share_video">Share video</string>
     <string name="download_options">Download options</string>
     <string name="status_error">Something went wrong. Check your connection and try again.</string>
     <string name="opening_in_browser">App not installed — opening in browser…</string>

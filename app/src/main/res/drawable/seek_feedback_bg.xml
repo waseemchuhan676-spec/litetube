@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Double-tap seek feedback pill (v1.9.0): dark rounded pill behind
+     the "+10s" / "-10s" text that flashes over the video. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#CC000000" />
+    <corners android:radius="20dp" />
+</shape>
